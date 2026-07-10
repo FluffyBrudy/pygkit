@@ -29,7 +29,7 @@ small = pygame.font.Font(None, 18)
 clock = pygame.time.Clock()
 running = True
 
-# Two alternating scene surfaces
+
 def make_scene_surf(color, label, label_color):
     surf = pygame.Surface((W, H))
     surf.fill(color)
@@ -41,13 +41,14 @@ def make_scene_surf(color, label, label_color):
             pygame.draw.rect(surf, (255, 255, 255, 30), (x, y, 40, 40), 1)
     return surf
 
+
 scene_a = make_scene_surf((40, 50, 70), "SCENE A", (180, 200, 240))
 scene_b = make_scene_surf((70, 40, 50), "SCENE B", (240, 180, 200))
 
 current = scene_a
 next_scene = scene_b
 
-# All transition combos to cycle through
+
 transitions_list = [
     ("FadeToBlack + FadeFromBlack", TransitionRunner(FadeToBlack(), FadeFromBlack())),
     ("Crossfade", TransitionRunner(Crossfade(), None)),
@@ -96,7 +97,6 @@ while running:
         runner.update(1 / 60)
 
         if runner.done_out:
-            # swap scenes
             current, next_scene = next_scene, current
             runner.start_in(0.6)
 
@@ -108,8 +108,7 @@ while running:
     else:
         screen.blit(current, (0, 0))
 
-    # overlay info
-    marker = "--> "  # no unicode, renders in any font
+    marker = "--> "
     names = [f"{marker if i == trans_idx else '     '} {t[0]}" for i, t in enumerate(transitions_list)]
     y = 10
     for i, name in enumerate(names):
@@ -117,7 +116,10 @@ while running:
         screen.blit(small.render(name, True, c), (10, y))
         y += 18
 
-    screen.blit(small.render("SPACE: trigger  |  LEFT/RIGHT arrow: switch type  |  Q: quit", True, (150, 150, 170)), (10, H - 22))
+    screen.blit(
+        small.render("SPACE: trigger  |  LEFT/RIGHT arrow: switch type  |  Q: quit", True, (150, 150, 170)),
+        (10, H - 22),
+    )
 
     pygame.display.flip()
     clock.tick(60)

@@ -3,8 +3,6 @@ Interactive easing curve visualizer.
 Press 1-5 to switch easing functions.
 """
 
-import math
-
 import pygame
 
 from pygkit.utils.interpolation import ease_in, ease_in_out, ease_out, smoothstep
@@ -44,14 +42,12 @@ while running:
     gw = w - margin * 2
     gh = h - margin * 2
 
-    # draw grid
     for i in range(11):
         x = margin + int(gw * i / 10)
         pygame.draw.line(screen, (40, 40, 55), (x, margin), (x, margin + gh))
         y = margin + int(gh * i / 10)
         pygame.draw.line(screen, (40, 40, 55), (margin, y), (margin + gw, y))
 
-    # draw curve
     prev = None
     for px in range(gw):
         t = px / gw
@@ -62,7 +58,6 @@ while running:
             pygame.draw.line(screen, (100, 200, 255), prev, (x, y), 3)
         prev = (x, y)
 
-    # axis labels
     screen.blit(font.render(current_name, True, (200, 200, 255)), (margin, 15))
     screen.blit(small.render("1-4: switch easing  |  Q: quit", True, (140, 140, 160)), (margin, h - 20))
 

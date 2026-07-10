@@ -29,7 +29,7 @@ KEY_MAP = {
     pygame.K_2: ("jump", "sfx"),
     pygame.K_3: ("hit", "sfx"),
     pygame.K_4: ("powerup", "sfx"),
-    pygame.K_5: ("next_level", "main"),    # loops automatically
+    pygame.K_5: ("next_level", "main"),
     pygame.K_6: ("death", "sfx"),
 }
 
@@ -63,7 +63,7 @@ while running:
 
     for i, (k, (name, kind)) in enumerate(KEY_MAP.items()):
         loop_hint = " (loops)" if kind == "main" else ""
-        label = f"{i+1}: {name} ({kind}{loop_hint})"
+        label = f"{i + 1}: {name} ({kind}{loop_hint})"
         screen.blit(small.render(label, True, (220, 220, 220)), (40, y))
         y += 22
 

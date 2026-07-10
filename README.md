@@ -10,8 +10,11 @@ import pygkit
 
 ## Features
 
-- **UI**: Box-model widgets with plugin compositing — progress bars, cooldown overlays, containers
+- **UI**: Box-model widgets with plugin compositing — progress bars, cooldown overlays, containers, dialog system
+- **Dialog**: Typewriter effect with customizable speeds, speaker names, and progress indicators
+- **Inventory**: Grid-based item management with stacking, weight tracking, events, and serialization
 - **Audio**: SoundManager with channel pools and explicit targeting
+- **Transitions**: Screen transitions with fade, wipe, and custom effects
 - **Utils**: Timer, interpolation/easing functions
 
 ## Installation

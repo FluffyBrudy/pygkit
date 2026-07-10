@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 @pytest.fixture(autouse=True)
 def pygame_init():
-    pygame.display.init()
+    pygame.init()  # Initialize all pygame modules including font
     pygame.display.set_mode((1, 1))
     yield
     pygame.quit()

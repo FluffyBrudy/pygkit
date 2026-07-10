@@ -1,11 +1,12 @@
 """
 Timer demo — prints elapsed time and ratio to console.
 """
+
 import pygame
 
-pygame.init()
-
 from pygkit.utils import Timer
+
+pygame.init()
 
 t = Timer(2000)
 print("Timer set for 2000ms")

@@ -12,6 +12,7 @@ class BoxModel(TypedDict, total=False):
     padding_y: int
     width: int
     height: int
+    border_width: int
 
 
 class BoxModelResult(TypedDict, total=True):

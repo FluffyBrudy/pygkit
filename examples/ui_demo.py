@@ -4,6 +4,8 @@ Shows ProgressBarUI, CooldownOverlay, and Container in a game-like HUD.
 Keys: 1-3 cooldowns, D toggle disabled, SPACE toggle HP, R reset.
 """
 
+from typing import cast
+
 import pygame
 
 from pygkit.ui import Container, CooldownOverlay, ProgressBarUI
@@ -18,13 +20,13 @@ small = pygame.font.Font(None, 16)
 clock = pygame.time.Clock()
 running = True
 
-# Progress bar
+
 hp_bar = ProgressBarUI(width=300, height=20, fill_color=(220, 60, 60), background=(60, 20, 20))
 mana_bar = ProgressBarUI(width=300, height=14, fill_color=(60, 120, 220), background=(15, 30, 60))
 hp_bar.set_progress(0.75)
 mana_bar.set_progress(0.45)
 
-# Cooldown timers + overlays
+
 dash_timer = Timer(3000, stale_init=True)
 dash_cd = CooldownOverlay(dash_timer, 48, border_color=(100, 200, 255), border_width=2, border_radius=4)
 
@@ -34,7 +36,7 @@ shield_cd = CooldownOverlay(shield_timer, 48, border_color=(255, 220, 60), borde
 ult_timer = Timer(8000, stale_init=True)
 ult_cd = CooldownOverlay(ult_timer, 48, border_color=(255, 80, 120), border_width=2, border_radius=4)
 
-# Container for skill icons
+
 skills = Container()
 skills.add(dash_cd, (20, 80))
 skills.add(shield_cd, (80, 80))
@@ -63,7 +65,6 @@ while running:
             elif event.key == pygame.K_3:
                 ult_timer.reset()
 
-    # auto-decrease mana over time
     mana = mana_bar.get_progress()
     mana_bar.set_progress(max(0, mana - 0.001))
 
@@ -71,17 +72,15 @@ while running:
     mana_bar.update()
     skills.update()
 
-    screen = pygame.display.get_surface()
+    screen = cast(pygame.Surface, pygame.display.get_surface())
     screen.fill((25, 25, 35))
 
-    # HUD area
     offset_x = 20
     hp_bar.render(screen, (offset_x, 15))
     mana_bar.render(screen, (offset_x, 42))
 
     skills.render(screen)
 
-    # instructions
     y = 150
     for line in [
         "SPACE: toggle HP  |  D: toggle disabled  |  R: reset",

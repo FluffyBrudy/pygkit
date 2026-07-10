@@ -1,73 +1,50 @@
+```
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
 *.pyc
-*.so
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
 
+# Distribution / packaging
 .Python
 build/
+develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
 *.egg
-pip-wheel-metadata/
 
-pip-log.txt
-pip-delete-this-directory.txt
-
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-pytest_cache/
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-
-.mypy_cache/
-.pyre/
-.pytype/
-ruff_cache/
-
-.venv/
-venv/
-env/
-ENV/
-
-.ipynb_checkpoints/
-
+# IDE
 .vscode/
 .idea/
 
-.DS_Store
-Thumbs.db
-
+# Logs
 *.log
 
+# Environment
 .env
-.env.*
+.env.local
+*.env.*
 
-*.manifest
-*.spec
-
-docs/_build/
-
-site/
-
-*.tmp
-*.swp
-
-poetry.lock
-.pdm.toml
-.hatch/
-.uv/
+# Coverage
+.coverage
 coverage/
-.pypirc
-
-*.local.txt
+htmlcov/
+```
