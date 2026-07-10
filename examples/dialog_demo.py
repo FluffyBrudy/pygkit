@@ -70,6 +70,9 @@ def main() -> None:
     ]
 
     current_index = 0
+    speaker, text = dialog_sequence[current_index]
+    dialog.set_dialog(speaker, text)
+    
     running = True
     show_speed_demo = False
 
@@ -89,8 +92,8 @@ def main() -> None:
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     if dialog.advance():
-                        current_index += 1
-                        if current_index < len(dialog_sequence):
+                        if current_index < len(dialog_sequence) - 1:
+                            current_index += 1
                             speaker, text = dialog_sequence[current_index]
                             dialog.set_dialog(speaker, text)
 

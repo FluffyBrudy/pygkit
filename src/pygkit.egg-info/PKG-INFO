@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygkit
-Version: 1.0.2
+Version: 1.0.3
 Summary: General-purpose Pygame CE runtime kit: UI widgets, audio, timers, interpolation, and more.
 Author: pygkit contributors
 License:                     GNU GENERAL PUBLIC LICENSE
@@ -708,8 +708,11 @@ import pygkit
 
 ## Features
 
-- **UI**: Box-model widgets with plugin compositing — progress bars, cooldown overlays, containers
+- **UI**: Box-model widgets with plugin compositing — progress bars, cooldown overlays, containers, dialog system
+- **Dialog**: Typewriter effect with customizable speeds, speaker names, and progress indicators
+- **Inventory**: Grid-based item management with stacking, weight tracking, events, and serialization
 - **Audio**: SoundManager with channel pools and explicit targeting
+- **Transitions**: Screen transitions with fade, wipe, and custom effects
 - **Utils**: Timer, interpolation/easing functions
 
 ## Installation

@@ -275,25 +275,21 @@ class DialogBox(UIBase):
             return
 
         if not self._is_complete:
-            self._typewriter_timer.reset()
-
-            chars_to_add = 0
+            text_len = len(self._current_line.text)
             elapsed = self._typewriter_timer.elapsed()
             interval = self._typewriter_timer.interval
 
-            if interval > 0:
+            if elapsed >= interval and interval > 0:
                 chars_to_add = max(1, int(elapsed / interval))
 
-            text_len = len(self._current_line.text)
-            if self._char_index < text_len:
-                old_index = self._char_index
-                self._char_index = min(text_len, self._char_index + chars_to_add)
-                self._displayed_text = self._current_line.text[: self._char_index]
-
-                if self._char_index != old_index:
-                    self._needs_rebuild = True
-
                 if self._char_index < text_len:
+                    old_index = self._char_index
+                    self._char_index = min(text_len, self._char_index + chars_to_add)
+                    self._displayed_text = self._current_line.text[: self._char_index]
+
+                    if self._char_index != old_index:
+                        self._needs_rebuild = True
+
                     self._typewriter_timer.reset()
 
             if self._char_index >= text_len:
@@ -400,7 +396,7 @@ class DialogBox(UIBase):
             pos_offset: Position offset (x, y) on the screen
         """
 
-        if self._needs_rebuild and self._is_complete:
+        if self._needs_rebuild:
             self._rebuild_text_surfaces()
 
         self.draw_base()
