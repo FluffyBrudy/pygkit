@@ -2,6 +2,7 @@ from .audio import *
 from .transitions import *
 from .ui import *
 from .utils import *
+from .signals import *
 
 __all__ = [
     "SoundManager",
@@ -43,4 +44,7 @@ __all__ = [
     "wrap",
     "render_multiline",
     "fit",
+    "Signal",
+    "SignalBus",
+    "signal",
 ]

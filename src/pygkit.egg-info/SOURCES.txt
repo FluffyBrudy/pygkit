@@ -15,6 +15,8 @@ src/pygkit/inventory/assets.py
 src/pygkit/inventory/core.py
 src/pygkit/inventory/data.py
 src/pygkit/inventory/ui.py
+src/pygkit/signals/__init__.py
+src/pygkit/signals/core.py
 src/pygkit/transitions/__init__.py
 src/pygkit/transitions/base.py
 src/pygkit/transitions/effects.py
@@ -34,6 +36,7 @@ tests/test_box_model.py
 tests/test_dialog.py
 tests/test_interpolation.py
 tests/test_inventory.py
+tests/test_signals.py
 tests/test_text.py
 tests/test_timer.py
 tests/test_transitions.py
