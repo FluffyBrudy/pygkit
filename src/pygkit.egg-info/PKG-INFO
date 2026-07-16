@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygkit
-Version: 1.0.3
+Version: 1.0.4
 Summary: General-purpose Pygame CE runtime kit: UI widgets, audio, timers, interpolation, and more.
 Author: pygkit contributors
 License:                     GNU GENERAL PUBLIC LICENSE
