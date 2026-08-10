@@ -14,6 +14,9 @@ import pygkit
 - **Dialog**: Typewriter effect with customizable speeds, speaker names, and progress indicators
 - **Inventory**: Grid-based item management with stacking, weight tracking, events, and serialization
 - **Audio**: SoundManager with channel pools and explicit targeting
+- **Lighting**: low-resolution light map pipeline (`LightMap`), point lights
+  with flicker, wind-reactive `DynamicLight` flames, and cone `Spotlight` —
+  full RGB/RGBA blend modes, allocation-free per frame
 - **Transitions**: Screen transitions with fade, wipe, and custom effects
 - **Utils**: Timer, interpolation/easing functions
 
