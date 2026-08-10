@@ -8,6 +8,9 @@ src/pygkit.egg-info/SOURCES.txt
 src/pygkit.egg-info/dependency_links.txt
 src/pygkit.egg-info/requires.txt
 src/pygkit.egg-info/top_level.txt
+src/pygkit/animation/__init__.py
+src/pygkit/animation/player.py
+src/pygkit/animation/sheet.py
 src/pygkit/audio/__init__.py
 src/pygkit/audio/soundmanager.py
 src/pygkit/inventory/__init__.py
@@ -15,6 +18,11 @@ src/pygkit/inventory/assets.py
 src/pygkit/inventory/core.py
 src/pygkit/inventory/data.py
 src/pygkit/inventory/ui.py
+src/pygkit/lighting/__init__.py
+src/pygkit/lighting/blend.py
+src/pygkit/lighting/lightmap.py
+src/pygkit/lighting/lights.py
+src/pygkit/lighting/sprites.py
 src/pygkit/signals/__init__.py
 src/pygkit/signals/core.py
 src/pygkit/transitions/__init__.py
@@ -32,10 +40,12 @@ src/pygkit/utils/__init__.py
 src/pygkit/utils/interpolation.py
 src/pygkit/utils/text.py
 src/pygkit/utils/timer.py
+tests/test_animation.py
 tests/test_box_model.py
 tests/test_dialog.py
 tests/test_interpolation.py
 tests/test_inventory.py
+tests/test_lighting.py
 tests/test_signals.py
 tests/test_text.py
 tests/test_timer.py

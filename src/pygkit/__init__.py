@@ -1,4 +1,5 @@
 from .audio import *
+from .animation import *
 from .lighting import (
     LIGHT_ADD,
     RGB_ADD,
@@ -29,6 +30,8 @@ from .signals import *
 __all__ = [
     "SoundManager",
     "SFX_CHANNELS",
+    "AnimationPlayer",
+    "AnimationSheet",
     "LightMap",
     "PointLight",
     "Spotlight",
