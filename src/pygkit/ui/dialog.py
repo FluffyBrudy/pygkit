@@ -1,16 +1,3 @@
-"""
-Production-grade Dialog System for Pygame.
-
-Features:
-- Typewriter effect with customizable speeds
-- Nine-patch style border rendering
-- Semi-transparent background with configurable colors
-- Speaker name highlighting
-- Animated progress indicator
-- Text outline/shadow for readability
-- Word wrapping and multi-line support
-"""
-
 from __future__ import annotations
 
 import math
@@ -119,17 +106,6 @@ class DialogLine:
 
 class DialogBox(UIBase):
     """
-    A production-grade dialog box with typewriter effect and animations.
-
-    Features:
-    - Smooth typewriter text reveal with adjustable speeds
-    - Semi-transparent background with nine-patch style borders
-    - Speaker name highlighting with distinct color
-    - Animated progress indicator (blinking arrow)
-    - Full color customization via DialogColors
-    - Text outline/shadow for readability over any background
-    - Word wrapping and multi-line support
-
     Usage:
         config = DialogConfig(
             width=600,

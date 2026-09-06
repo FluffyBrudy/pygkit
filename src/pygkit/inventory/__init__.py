@@ -1,6 +1,4 @@
 """
-Pygkit Inventory System - Production-grade inventory management for Pygame.
-
 A complete, generic, and optimized inventory system with:
 - Data-driven item definitions
 - Grid-based slot management

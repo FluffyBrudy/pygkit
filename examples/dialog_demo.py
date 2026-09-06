@@ -1,7 +1,6 @@
 """
 Dialog System Demo for pygkit.
 
-This example demonstrates the production-grade DialogBox system with:
 - Typewriter effect with multiple speed presets
 - Customizable colors and transparency
 - Speaker name highlighting
@@ -11,7 +10,6 @@ This example demonstrates the production-grade DialogBox system with:
 
 import pygame
 from pygame import Surface
-
 from pygkit import (
     DialogBox,
     DialogColors,
@@ -72,7 +70,7 @@ def main() -> None:
     current_index = 0
     speaker, text = dialog_sequence[current_index]
     dialog.set_dialog(speaker, text)
-    
+
     running = True
     show_speed_demo = False
 
