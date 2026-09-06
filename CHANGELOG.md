@@ -4,6 +4,9 @@
 
 ### Features
 
+- `AnimationSheet` supports cell offsets via `start_row`/`start_col` with
+  full-grid sizing from `sheet_rows`/`sheet_cols`, so a `rows` x `cols`
+  window can start at any cell instead of the first row/column.
 - Added `pygkit.lighting`: generic 2D lighting pipeline with a low-resolution
   light map (`LightMap`), radial lights with organic flicker (`PointLight`),
   wind-reactive flame lights (`DynamicLight`), and mouse-aimable cone lights

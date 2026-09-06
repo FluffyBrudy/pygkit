@@ -196,7 +196,7 @@ class AnimationSheet:
     ``2.0`` doubles dimensions, ``0.5`` halves them.
     """
 
-    __slots__ = ("_surface", "_rows", "_cols", "_cell_w", "_cell_h", "_cache", "_frames", "_scale", "_orig_cell_w", "_orig_cell_h")
+    __slots__ = ("_surface", "_rows", "_cols", "_cell_w", "_cell_h", "_cache", "_frames", "_scale", "_orig_cell_w", "_orig_cell_h", "_start_row", "_start_col", "_sheet_rows", "_sheet_cols")
 
     def __init__(
         self,
@@ -205,11 +205,35 @@ class AnimationSheet:
         cols: int = 1,
         pattern: str | None = None,
         scale: float = 1.0,
+        start_row: int = 0,
+        start_col: int = 0,
+        sheet_rows: int | None = None,
+        sheet_cols: int | None = None,
     ) -> None:
         if not isinstance(rows, int) or not isinstance(cols, int) or isinstance(rows, bool) or isinstance(cols, bool):
             raise TypeError("rows and cols must be ints")
         if rows < 1 or cols < 1:
             raise ValueError(f"rows and cols must be >= 1, got rows={rows}, cols={cols}")
+        if not isinstance(start_row, int) or not isinstance(start_col, int) or isinstance(start_row, bool) or isinstance(start_col, bool):
+            raise TypeError("start_row and start_col must be ints")
+        if start_row < 0 or start_col < 0:
+            raise ValueError(f"start_row and start_col must be >= 0, got start_row={start_row}, start_col={start_col}")
+        if sheet_rows is not None:
+            if not isinstance(sheet_rows, int) or isinstance(sheet_rows, bool):
+                raise TypeError("sheet_rows must be int or None")
+            if sheet_rows < 1:
+                raise ValueError(f"sheet_rows must be >= 1, got {sheet_rows}")
+        if sheet_cols is not None:
+            if not isinstance(sheet_cols, int) or isinstance(sheet_cols, bool):
+                raise TypeError("sheet_cols must be int or None")
+            if sheet_cols < 1:
+                raise ValueError(f"sheet_cols must be >= 1, got {sheet_cols}")
+        full_rows = sheet_rows if sheet_rows is not None else rows
+        full_cols = sheet_cols if sheet_cols is not None else cols
+        if start_row + rows > full_rows or start_col + cols > full_cols:
+            raise ValueError(
+                f"window rows={rows} cols={cols} at start_row={start_row} start_col={start_col} exceeds sheet {full_rows}x{full_cols}"
+            )
         if pattern is not None and not isinstance(pattern, str):
             raise TypeError("pattern must be str or None")
         if not isinstance(scale, (int, float)) or isinstance(scale, bool):
@@ -223,9 +247,9 @@ class AnimationSheet:
                 raise ValueError("pattern is only valid when image is a directory path")
             surface = image
             width, height = surface.get_size()
-            cell_w, cell_h = width // cols, height // rows
+            cell_w, cell_h = width // full_cols, height // full_rows
             if cell_w < 1 or cell_h < 1:
-                raise ValueError(f"Sheet {width}x{height} cannot fit a {rows}x{cols} grid")
+                raise ValueError(f"Sheet {width}x{height} cannot fit a {full_rows}x{full_cols} grid")
             self._surface: Surface | None = surface
             self._rows = rows
             self._cols = cols
@@ -243,6 +267,10 @@ class AnimationSheet:
                 self._cell_w, self._cell_h = scaled_dummy.get_size()
             self._cache: dict[int, Surface] = {}
             self._frames: list[Surface] | None = None
+            self._start_row = start_row
+            self._start_col = start_col
+            self._sheet_rows = full_rows
+            self._sheet_cols = full_cols
             return
 
         path = Path(image)
@@ -250,8 +278,14 @@ class AnimationSheet:
         if path.is_dir():
             if rows != 1 or cols != 1:
                 raise ValueError(f"rows and cols are ignored in directory mode (got rows={rows}, cols={cols}); use pattern/scale instead")
+            if start_row != 0 or start_col != 0 or sheet_rows is not None or sheet_cols is not None:
+                raise ValueError("start_row/start_col/sheet_rows/sheet_cols are ignored in directory mode")
             self._scale = scale_f
             self._init_from_directory(path, pattern)
+            self._start_row = 0
+            self._start_col = 0
+            self._sheet_rows = 1
+            self._sheet_cols = self._cols
             return
 
         if pattern is not None:
@@ -268,9 +302,9 @@ class AnimationSheet:
                 pass
 
         width, height = surface.get_size()
-        cell_w, cell_h = width // cols, height // rows
+        cell_w, cell_h = width // full_cols, height // full_rows
         if cell_w < 1 or cell_h < 1:
-            raise ValueError(f"Sheet {width}x{height} cannot fit a {rows}x{cols} grid")
+            raise ValueError(f"Sheet {width}x{height} cannot fit a {full_rows}x{full_cols} grid")
 
         self._surface = surface
         self._rows = rows
@@ -287,6 +321,10 @@ class AnimationSheet:
             self._cell_w, self._cell_h = scaled_dummy.get_size()
         self._cache: dict[int, Surface] = {}
         self._frames = None
+        self._start_row = start_row
+        self._start_col = start_col
+        self._sheet_rows = full_rows
+        self._sheet_cols = full_cols
 
     def _init_from_directory(self, dir_path: Path, pattern: str | None) -> None:
         files = _collect_image_files(dir_path, pattern)
@@ -338,13 +376,18 @@ class AnimationSheet:
 
     @classmethod
     def load(
-        cls, path: PathLike, rows: int = 1, cols: int = 1, pattern: str | None = None, scale: float = 1.0
+        cls,
+        path: PathLike,
+        rows: int = 1,
+        cols: int = 1,
+        pattern: str | None = None,
+        scale: float = 1.0,
+        start_row: int = 0,
+        start_col: int = 0,
+        sheet_rows: int | None = None,
+        sheet_cols: int | None = None,
     ) -> "AnimationSheet":
-        """Load a sheet from a file or directory.
-
-        See :class:`AnimationSheet` for ``pattern`` and ``scale`` semantics.
-        """
-        return cls(path, rows, cols, pattern=pattern, scale=scale)
+        return cls(path, rows, cols, pattern=pattern, scale=scale, start_row=start_row, start_col=start_col, sheet_rows=sheet_rows, sheet_cols=sheet_cols)
 
     @classmethod
     def from_directory(cls, directory: PathLike, pattern: str | None = None, scale: float = 1.0) -> "AnimationSheet":
@@ -377,21 +420,35 @@ class AnimationSheet:
     def scale(self) -> float:
         return self._scale
 
+    @property
+    def start_row(self) -> int:
+        return self._start_row
+
+    @property
+    def start_col(self) -> int:
+        return self._start_col
+
+    @property
+    def sheet_rows(self) -> int:
+        return self._sheet_rows
+
+    @property
+    def sheet_cols(self) -> int:
+        return self._sheet_cols
+
     def get_frame(self, index: int) -> Surface:
         if index < 0 or index >= self.frame_count:
             raise IndexError(f"Frame index {index} out of range for {self.frame_count} frames")
         if self._frames is not None:
-            # Directory mode: frames already loaded and cached (scaled if needed).
             return self._cache[index]
         cached = self._cache.get(index)
         if cached is None:
-            col = index % self._cols
-            row = index // self._cols
+            col = self._start_col + (index % self._cols)
+            row = self._start_row + (index // self._cols)
             if self._scale == 1.0:
                 src = Rect(col * self._cell_w, row * self._cell_h, self._cell_w, self._cell_h)
                 cached = self._surface.subsurface(src).copy()  # type: ignore[union-attr]
             else:
-                # Use stored original cell size to avoid rounding drift.
                 src = Rect(col * self._orig_cell_w, row * self._orig_cell_h, self._orig_cell_w, self._orig_cell_h)
                 tmp = self._surface.subsurface(src).copy()  # type: ignore[union-attr]
                 cached = _scale_surface(tmp, self._scale)
