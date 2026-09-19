@@ -1,6 +1,7 @@
 """
 Dialog System Demo for pygkit.
 
+Needs: pygkit[ui]
 - Typewriter effect with multiple speed presets
 - Customizable colors and transparency
 - Speaker name highlighting

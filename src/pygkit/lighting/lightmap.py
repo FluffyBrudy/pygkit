@@ -23,7 +23,7 @@ from __future__ import annotations
 import pygame
 from pygame import Surface
 
-from pygkit.lighting.blend import LIGHT_ADD, SCENE_MULT
+from .blend import LIGHT_ADD, SCENE_MULT
 
 __all__ = ["LightMap"]
 

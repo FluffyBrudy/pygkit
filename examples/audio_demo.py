@@ -1,6 +1,8 @@
 """
 Interactive audio demo.
 Press keys: 1-6 to play sounds, R to record, Q to quit.
+
+Needs: pygkit[audio]
 """
 
 from pathlib import Path

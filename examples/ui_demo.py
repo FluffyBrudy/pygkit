@@ -2,6 +2,8 @@
 Interactive UI demo.
 Shows ProgressBarUI, CooldownOverlay, and Container in a game-like HUD.
 Keys: 1-3 cooldowns, D toggle disabled, SPACE toggle HP, R reset.
+
+Needs: pygkit[ui]
 """
 
 from typing import cast

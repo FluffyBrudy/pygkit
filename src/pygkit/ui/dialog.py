@@ -59,8 +59,7 @@ class DialogColors:
 
 @dataclass
 class DialogConfig:
-    """
-    Complete configuration for a DialogBox instance.
+    """Configuration for a DialogBox instance.
 
     Combines layout, typography, colors, and behavior settings.
     """

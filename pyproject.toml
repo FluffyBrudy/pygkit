@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygkit"
-version = "1.0.8"
+version = "1.1.0"
 description = "General-purpose Pygame CE runtime kit: UI widgets, audio, timers, interpolation, and more."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,6 +24,21 @@ classifiers = [
   "Topic :: Games/Entertainment",
   "Topic :: Software Development",
   "Topic :: Software Development :: Libraries",
+]
+
+[project.optional-dependencies]
+# One extra per subsystem. Empty for now: every subsystem is pure
+# pygame-ce + stdlib. Slots are reserved for future speedups
+# (lighting color math -> numpy, sprite pack -> pillow) without
+# taxing core installs.
+ui = []
+audio = []
+animation = []
+lighting = []
+transitions = []
+inventory = []
+all = [
+  "pygkit[ui, audio, animation, lighting, transitions, inventory]",
 ]
 
 [project.urls]

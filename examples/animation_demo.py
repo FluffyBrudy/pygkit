@@ -1,6 +1,8 @@
 """
 pygkit animation demo — one player, two differently sized spritesheets.
 
+Needs: pygkit[animation]
+
 Each state owns its own sheet: "idle" uses 32px cells, "run" uses 48px cells,
 and both sheets are procedurally generated at startup (no asset files needed).
 The sprite is anchored bottom-center so mixed cell sizes stay grounded.

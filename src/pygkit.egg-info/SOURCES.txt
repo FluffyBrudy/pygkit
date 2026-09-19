@@ -46,6 +46,7 @@ tests/test_dialog.py
 tests/test_interpolation.py
 tests/test_inventory.py
 tests/test_lighting.py
+tests/test_packaging.py
 tests/test_signals.py
 tests/test_text.py
 tests/test_timer.py

@@ -24,5 +24,11 @@ import pygkit
 ## Installation
 
 ```bash
-pip install pygkit
+pip install pygkit            # core: signals, utils, protocols
+pip install "pygkit[ui]"      # widgets, dialog, cooldowns
+pip install "pygkit[all]"     # everything
 ```
+
+Available extras: `ui`, `audio`, `animation`, `lighting`,
+`transitions`, `inventory`, `all`. `import pygkit` alone loads
+core only; subsystems load lazily on first use.

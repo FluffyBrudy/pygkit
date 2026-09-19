@@ -1,18 +1,5 @@
 """
-A complete, generic, and optimized inventory system with:
-- Data-driven item definitions
-- Grid-based slot management
-- Drag-and-drop interactions
-- Tooltips and visual feedback
-- Asset caching for performance
-- Event-driven architecture
-- Save/load serialization support
-
-Modules:
-    data: Type definitions and data structures
-    core: Inventory logic and state management
-    assets: Asset caching and procedural generation
-    ui: UI rendering and user interaction
+Grid inventory: data definitions, slot logic, icon assets, widgets.
 
 Usage:
     from pygkit.inventory import Inventory, InventoryWidget, ItemData

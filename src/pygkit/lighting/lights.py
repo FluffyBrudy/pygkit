@@ -17,9 +17,9 @@ import random
 import pygame
 from pygame import Surface
 
-from pygkit.lighting.blend import LIGHT_ADD
-from pygkit.lighting.lightmap import LightMap
-from pygkit.lighting.sprites import dynamic_glow_sprite, glow_sprite, spotlight_sprite
+from .blend import LIGHT_ADD
+from .lightmap import LightMap
+from .sprites import dynamic_glow_sprite, glow_sprite, spotlight_sprite
 
 __all__ = ["PointLight", "Spotlight", "DynamicLight"]
 

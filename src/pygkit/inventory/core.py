@@ -19,8 +19,7 @@ from .data import (
 
 
 class Inventory:
-    """
-    Generic inventory container with full item management capabilities.
+    """Grid slot container with stacking, weight, events, serialization.
 
     Features:
     - Grid-based slot system with configurable size

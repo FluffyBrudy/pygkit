@@ -1,7 +1,8 @@
 """
 Inventory System Demo for Pygkit.
 
-Demonstrates the complete inventory system with:
+Needs: pygkit[inventory]
+Demonstrates the inventory system with:
 - Multiple inventories (player backpack, chest)
 - Drag and drop interactions
 - Right-click stack splitting

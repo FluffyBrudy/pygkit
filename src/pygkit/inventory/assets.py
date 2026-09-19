@@ -1,8 +1,5 @@
 """
-Asset caching and procedural generation for the Inventory System.
-
-Provides optimized caching of static UI elements and procedural
-generation of item icons to avoid runtime overhead.
+Slot surface cache and item icon generation.
 """
 
 from __future__ import annotations

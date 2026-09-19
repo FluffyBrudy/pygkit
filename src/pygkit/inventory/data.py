@@ -14,8 +14,7 @@ from pygame.typing import ColorLike
 
 
 class ItemData(TypedDict, total=False):
-    """
-    Flexible item definition with required core fields and optional metadata.
+    """Item definition with required core fields and optional metadata.
 
     Required:
         id: Unique string identifier (e.g., "potion_health_small")

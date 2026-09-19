@@ -1,6 +1,8 @@
 """
 Interactive transitions demo.
 Cycles through all transition types. Press SPACE to trigger the next transition.
+
+Needs: pygkit[transitions]
 """
 
 import pygame

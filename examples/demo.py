@@ -1,5 +1,7 @@
 """
 pygkit Showcase — clean all-in-one demo combining audio, UI, transitions, and utils.
+
+Needs: pygkit[all]
 """
 
 import math

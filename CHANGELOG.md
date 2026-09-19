@@ -4,6 +4,14 @@
 
 ### Features
 
+- Slim core install: `import pygkit` loads signals, utils, protocols
+  only; subsystems (ui, audio, animation, lighting, transitions,
+  inventory) load lazily. Install what the game uses:
+  `pip install "pygkit[ui]"`, `...[all]` for everything.
+- `pygkit.inventory` names now resolve from the top level
+  (`from pygkit import Inventory`).
+- Removed self-claiming "production-grade" wording from docs.
+
 - `AnimationSheet` supports cell offsets via `start_row`/`start_col` with
   full-grid sizing from `sheet_rows`/`sheet_cols`, so a `rows` x `cols`
   window can start at any cell instead of the first row/column.

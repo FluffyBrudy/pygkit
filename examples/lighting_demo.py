@@ -1,6 +1,8 @@
 """
 pygkit lighting demo - night scene with torch, campfire, spotlight.
 
+Needs: pygkit[lighting]
+
 Scene: a moonlit night, a flickering torch, a wind-reactive campfire, a
 crate casting a negative light (shadow), an auto-orbiting player light and
 a mouse-following spotlight.

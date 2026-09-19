@@ -18,7 +18,7 @@ the scene) with game-agnostic lights. Straight imports, no game wiring::
         lightmap.apply(scene, blend=RGBA_MULT)
 """
 
-from pygkit.lighting.blend import (
+from .blend import (
     LIGHT_ADD,
     RGB_ADD,
     RGB_MAX,
@@ -32,9 +32,9 @@ from pygkit.lighting.blend import (
     RGBA_SUB,
     SCENE_MULT,
 )
-from pygkit.lighting.lightmap import LightMap
-from pygkit.lighting.lights import DynamicLight, PointLight, Spotlight
-from pygkit.lighting.sprites import (
+from .lightmap import LightMap
+from .lights import DynamicLight, PointLight, Spotlight
+from .sprites import (
     clear_sprite_cache,
     dynamic_glow_sprite,
     glow_sprite,

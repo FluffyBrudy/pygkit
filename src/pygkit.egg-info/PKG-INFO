@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygkit
-Version: 1.0.7
+Version: 1.1.0
 Summary: General-purpose Pygame CE runtime kit: UI widgets, audio, timers, interpolation, and more.
 Author: pygkit contributors
 License:                     GNU GENERAL PUBLIC LICENSE
@@ -694,6 +694,14 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pygame-ce>=2.5
+Provides-Extra: ui
+Provides-Extra: audio
+Provides-Extra: animation
+Provides-Extra: lighting
+Provides-Extra: transitions
+Provides-Extra: inventory
+Provides-Extra: all
+Requires-Dist: pygkit[animation,audio,inventory,lighting,transitions,ui]; extra == "all"
 Dynamic: license-file
 
 # pygkit
@@ -722,5 +730,11 @@ import pygkit
 ## Installation
 
 ```bash
-pip install pygkit
+pip install pygkit            # core: signals, utils, protocols
+pip install "pygkit[ui]"      # widgets, dialog, cooldowns
+pip install "pygkit[all]"     # everything
 ```
+
+Available extras: `ui`, `audio`, `animation`, `lighting`,
+`transitions`, `inventory`, `all`. `import pygkit` alone loads
+core only; subsystems load lazily on first use.
