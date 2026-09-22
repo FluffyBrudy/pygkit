@@ -13,7 +13,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-from .protocols import Drawable, Renderable, UIElement, Updateable
+from .protocols import Clickable, Drawable, Renderable, UIElement, Updateable, Widget
 from .signals import Signal, SignalBus, signal
 from .utils import (
     SimpleInterpolation,
@@ -82,6 +82,15 @@ _LAZY_ATTRS: dict[str, str] = {
     "DialogColors": "ui",
     "DialogLine": "ui",
     "TypewriterSpeed": "ui",
+    "Button": "ui",
+    "ButtonStyle": "ui",
+    "Menubar": "ui",
+    "ANCHORS": "ui",
+    "anchor_point": "ui",
+    "place": "ui",
+    "row": "ui",
+    "column": "ui",
+    "grid": "ui",
     "ItemData": "inventory",
     "InventoryConfig": "inventory",
     "ItemStack": "inventory",
@@ -150,6 +159,15 @@ __all__ = [
     "DialogColors",
     "DialogLine",
     "TypewriterSpeed",
+    "Button",
+    "ButtonStyle",
+    "Menubar",
+    "ANCHORS",
+    "anchor_point",
+    "place",
+    "row",
+    "column",
+    "grid",
     "ItemData",
     "InventoryConfig",
     "ItemStack",
@@ -185,6 +203,8 @@ __all__ = [
     "UIElement",
     "Drawable",
     "Updateable",
+    "Clickable",
+    "Widget",
 ]
 
 

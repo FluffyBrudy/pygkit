@@ -10,6 +10,14 @@
   `pip install "pygkit[ui]"`, `...[all]` for everything.
 - `pygkit.inventory` names now resolve from the top level
   (`from pygkit import Inventory`).
+- Added `pygkit.ui.Button`: text or image-backed button with typed
+  `ButtonStyle` tint overlays, `on_press` signal, passive
+  press/activate hit-testing. Added `pygkit.ui.Menubar`: container
+  with local child rects, 9-anchor placement, `add`/`remove`, and
+  `handle_event` returning whether a child claimed the event.
+- Added `pygkit.ui.anchors`: `place`/`row`/`column`/`grid` helpers
+  on `pygame.Rect` anchor names. Added `Clickable` protocol.
+  See `examples/menubar_demo.py`.
 - Removed self-claiming "production-grade" wording from docs.
 
 - `AnimationSheet` supports cell offsets via `start_row`/`start_col` with

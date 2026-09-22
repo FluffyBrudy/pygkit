@@ -1,6 +1,8 @@
-from typing import Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from pygame import Surface
+
+from .signals import Signal
 
 
 class Renderable(Protocol):
@@ -27,3 +29,21 @@ class Drawable(Protocol):
 
 class Updateable(Protocol):
     def update(self): ...
+
+
+@runtime_checkable
+class Widget(Renderable, Protocol):
+    @property
+    def size(self) -> tuple[int, int]: ...
+
+
+class Clickable(Widget, Protocol):
+    # contains/press/activate take screen coords; widgets track origin at render.
+
+    on_press: Signal[Any]
+
+    def contains(self, pos: tuple[int, int]) -> bool: ...
+
+    def press(self, pos: tuple[int, int]) -> bool: ...
+
+    def activate(self, pos: tuple[int, int]) -> bool: ...
