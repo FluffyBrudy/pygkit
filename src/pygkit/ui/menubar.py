@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Unpack
 
 import pygame
 from pygame import Surface
@@ -27,19 +28,19 @@ class Menubar(UIBase):
         image: Surface | None = None,
         width: int = 0,
         height: int = 0,
-        **overrides: object,
+        **overrides: Unpack[UIOptions],
     ) -> None:
         self.image = image
         options: UIOptions = {
-            "width": width if width > 0 else (image.get_width() if image is not None else 0),
-            "height": height if height > 0 else (image.get_height() if image is not None else 0),
-            "border_radius": 6,
-            "border_width": 0,
-            "background": (20, 22, 28, 255),
+            **{
+                "width": width if width > 0 else (image.get_width() if image is not None else 0),
+                "height": height if height > 0 else (image.get_height() if image is not None else 0),
+                "border_radius": 6,
+                "border_width": 0,
+                "background": (20, 22, 28, 255),
+            },
+            **overrides,
         }
-        for key, value in overrides.items():
-            if key in options:
-                options[key] = value  # type: ignore[literal-required]
         super().__init__(options)
         self.entries: list[_Entry] = []
 
@@ -93,16 +94,16 @@ class Menubar(UIBase):
                     return True
             return False
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            for entry in reversed(list(self.entries)):
+            for entry in reversed(self.entries):
                 activate = getattr(entry.child, "activate", None)
                 if activate is not None and activate(event.pos):
                     return True
             return False
         return False
 
-    def update(self) -> None:
+    def update(self, dt: float = 0.0) -> None:
         for entry in self.entries:
-            entry.child.update()
+            entry.child.update(dt)
 
     def render(self, screen: Surface, pos_offset: tuple[int, int] = (0, 0)) -> None:
         self.draw_base()

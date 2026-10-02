@@ -4,10 +4,27 @@ from typing import Protocol
 from pygame import Surface
 
 
-class Transition(Protocol):
-    def start(self, duration: float) -> None: ...
+def _check_duration(duration: float) -> float:
+    import math
 
-    def update(self, dt: float) -> None: ...
+    if not math.isfinite(duration) or duration < 0:
+        raise ValueError(f"duration must be finite and >= 0, got {duration!r}")
+    return float(duration)
+
+
+def _check_dt(dt: float) -> float:
+    import math
+
+    if not math.isfinite(dt) or dt < 0:
+        return 0.0
+    return float(dt)
+
+
+class Transition(Protocol):
+    def start(self, duration: float = ...) -> None: ...
+
+    def update(self, dt: float) -> None:
+        """Advance by *dt* seconds."""
 
     def render(
         self,
@@ -15,6 +32,13 @@ class Transition(Protocol):
         source: Surface | None = None,
         target: Surface | None = None,
     ) -> None: ...
+
+    def pause(self) -> None: ...
+
+    def resume(self) -> None: ...
+
+    @property
+    def paused(self) -> bool: ...
 
     @property
     def done(self) -> bool: ...
@@ -64,6 +88,18 @@ class TransitionRunner:
                     self.state = TransitionState.DONE
             else:
                 self.state = TransitionState.DONE
+
+    def pause(self) -> None:
+        if self.fade_out is not None:
+            self.fade_out.pause()
+        if self.fade_in is not None:
+            self.fade_in.pause()
+
+    def resume(self) -> None:
+        if self.fade_out is not None:
+            self.fade_out.resume()
+        if self.fade_in is not None:
+            self.fade_in.resume()
 
     def render(
         self,

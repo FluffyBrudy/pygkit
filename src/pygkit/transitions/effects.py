@@ -1,9 +1,11 @@
 import math
 import random
+from typing import Callable
 
 from pygame import Surface
 
 from ..utils.interpolation import ease_out
+from .base import _check_dt, _check_duration
 
 
 class PixelDissolve:
@@ -17,43 +19,61 @@ class PixelDissolve:
         "_elapsed",
         "_duration",
         "_done",
+        "_paused",
         "_order",
-        "_cols",
-        "_rows",
+        "_grid",
     )
 
-    def __init__(self, tile_size: int = 8) -> None:
+    def __init__(
+        self,
+        tile_size: int = 8,
+        easing: Callable[[float], float] = ease_out,
+    ) -> None:
+        if not isinstance(tile_size, int) or isinstance(tile_size, bool) or tile_size < 1:
+            raise ValueError(f"tile_size must be an int >= 1, got {tile_size!r}")
         self._tile_size = tile_size
-        self._easing = ease_out
+        self._easing = easing
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._order: list[int] = []
-        self._cols = 0
-        self._rows = 0
+        self._grid: tuple[int, int] = (0, 0)
 
     def start(self, duration: float) -> None:
         self._elapsed = 0.0
-        self._duration = duration
+        self._duration = _check_duration(duration)
         self._done = False
+        self._paused = False
         self._order = []
+        self._grid = (0, 0)
 
     @property
     def done(self) -> bool:
         return self._done
 
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     def reset(self) -> None:
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._order.clear()
-        self._cols = 0
-        self._rows = 0
+        self._grid = (0, 0)
 
     def update(self, dt: float) -> None:
-        if self._done:
+        if self._done or self._paused:
             return
-        self._elapsed += dt
+        self._elapsed += _check_dt(dt)
         if self._elapsed >= self._duration:
             self._elapsed = self._duration
             self._done = True
@@ -69,13 +89,12 @@ class PixelDissolve:
         cols = max(1, int(math.ceil(w / ts)))
         rows = max(1, int(math.ceil(h / ts)))
 
-        if not self._order:
-            self._cols = cols
-            self._rows = rows
+        if not self._order or self._grid != (cols, rows):
+            self._grid = (cols, rows)
             self._order = list(range(cols * rows))
             random.shuffle(self._order)
 
-        t = self._elapsed / self._duration if self._duration > 0 else 1.0
+        t = self._easing(self._elapsed / self._duration) if self._duration > 0 else 1.0
         reveal_count = int(t * len(self._order))
 
         revealed = set(self._order[:reveal_count])
@@ -102,41 +121,56 @@ class Shake:
     Can be used standalone or alongside another transition.
     """
 
-    __slots__ = ("_intensity", "_elapsed", "_duration", "_done", "_offset")
+    __slots__ = ("_intensity", "_elapsed", "_duration", "_done", "_paused", "_offset")
 
     def __init__(self, intensity: float = 8.0) -> None:
-        self._intensity = intensity
+        if not math.isfinite(intensity) or intensity < 0:
+            raise ValueError(f"intensity must be finite and >= 0, got {intensity!r}")
+        self._intensity = float(intensity)
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._offset = (0, 0)
 
     def start(self, duration: float = 0.3) -> None:
         self._elapsed = 0.0
-        self._duration = duration
+        self._duration = _check_duration(duration)
         self._done = False
+        self._paused = False
 
     @property
     def done(self) -> bool:
         return self._done
 
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     def reset(self) -> None:
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._offset = (0, 0)
 
     def update(self, dt: float) -> None:
-        if self._done:
+        if self._done or self._paused:
             return
-        self._elapsed += dt
+        self._elapsed += _check_dt(dt)
         if self._elapsed >= self._duration:
             self._elapsed = self._duration
             self._done = True
             self._offset = (0, 0)
             return
 
-        t = self._elapsed / self._duration
+        t = self._elapsed / self._duration if self._duration > 0 else 1.0
         decay = 1.0 - t
         current = self._intensity * decay
 

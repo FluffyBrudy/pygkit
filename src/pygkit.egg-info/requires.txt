@@ -1,7 +1,7 @@
 pygame-ce>=2.5
 
 [all]
-pygkit[animation,audio,inventory,lighting,transitions,ui]
+pygkit[animation,audio,inventory,lighting,parallax,transitions,ui]
 
 [animation]
 
@@ -10,6 +10,8 @@ pygkit[animation,audio,inventory,lighting,transitions,ui]
 [inventory]
 
 [lighting]
+
+[parallax]
 
 [transitions]
 

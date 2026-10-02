@@ -1,10 +1,9 @@
 """
 Interactive audio demo.
-Press keys: 1-6 to play sounds, R to record, Q to quit.
+1-6 play, S stop all, M mute/unmute sfx, -/+ sfx volume, F fade main, Q quit.
 
 Needs: pygkit[audio]
 """
-
 from pathlib import Path
 
 import pygame
@@ -53,6 +52,15 @@ while running:
                 sm.play(key, kind)
             elif event.key == pygame.K_s:
                 sm.stop_all()
+            elif event.key == pygame.K_m:
+                muted = sm.get_volume(kind="sfx") > 0.0
+                sm.set_volume(0.0 if muted else 1.0, kind="sfx")
+            elif event.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                sm.set_volume(sm.get_volume(kind="sfx") - 0.1, kind="sfx")
+            elif event.key in (pygame.K_EQUALS, pygame.K_KP_PLUS):
+                sm.set_volume(sm.get_volume(kind="sfx") + 0.1, kind="sfx")
+            elif event.key == pygame.K_f:
+                sm.fadeout(800, kind="main")
 
     screen = pygame.display.get_surface()
     screen.fill((20, 20, 30))
@@ -60,7 +68,7 @@ while running:
     y = 20
     screen.blit(font.render("pygkit Audio Demo", True, (200, 200, 255)), (20, y))
     y += 40
-    screen.blit(small.render("1-6: Play sounds  |  S: stop all  |  Q: Quit", True, (180, 180, 180)), (20, y))
+    screen.blit(small.render("1-6: Play  |  S: stop all  |  M: mute sfx  |  -/+: sfx vol  |  F: fade main  |  Q: Quit", True, (180, 180, 180)), (20, y))
     y += 30
 
     for i, (k, (name, kind)) in enumerate(KEY_MAP.items()):
@@ -71,7 +79,7 @@ while running:
 
     y += 10
     screen.blit(
-        small.render(f"SFX_CHANNELS available: {SFX_CHANNELS}", True, (150, 200, 150)),
+        small.render(f"sfx vol: {sm.get_volume(kind='sfx'):.2f}  |  SFX_CHANNELS: {SFX_CHANNELS}", True, (150, 200, 150)),
         (20, y),
     )
 

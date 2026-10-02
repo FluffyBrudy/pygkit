@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Unpack
 
 import pygame
 from pygame import SRCALPHA, Surface
@@ -30,7 +31,7 @@ class Button(UIBase):
         height: int = 0,
         style: ButtonStyle | None = None,
         enabled: bool = True,
-        **overrides: object,
+        **overrides: Unpack[UIOptions],
     ) -> None:
         self.font = font
         self.text = text
@@ -43,16 +44,23 @@ class Button(UIBase):
             natural_w, natural_h = image.get_width(), image.get_height()
         else:
             natural_w, natural_h = 16 + tw, th + 10
+        pad_x = overrides.get("padding_x", 0)
+        pad_y = overrides.get("padding_y", 0)
+        border = overrides.get("border_width", 0)
+        if width <= 0:
+            width = natural_w + 2 * (pad_x + border)
+        if height <= 0:
+            height = natural_h + 2 * (pad_y + border)
         options: UIOptions = {
-            "width": width if width > 0 else natural_w,
-            "height": height if height > 0 else natural_h,
-            "border_radius": 6,
-            "border_width": 0,
-            "background": (20, 22, 28, 255),
+            **{
+                "width": width,
+                "height": height,
+                "border_radius": 6,
+                "border_width": 0,
+                "background": (20, 22, 28, 255),
+            },
+            **overrides,
         }
-        for key, value in overrides.items():
-            if key in options:
-                options[key] = value  # type: ignore[literal-required]
         super().__init__(options)
         self._armed = False
         self._hovered = False
@@ -75,19 +83,17 @@ class Button(UIBase):
     def _ensure(self) -> None:
         if self._label is None and self.text:
             self._label = self.font.render(self.text, True, self.style.text_color)
-        w, h = self.size
+        w = self.box_model["content_width"]
+        h = self.box_model["content_height"]
         for key, color in (
             ("hover", self.style.hover_tint),
             ("pressed", self.style.pressed_tint),
             ("disabled", self.style.disabled_tint),
         ):
             if self._tint[key] is None and color is not None:
-                surf = Surface((w, h), SRCALPHA)
+                surf = Surface((max(1, w), max(1, h)), SRCALPHA)
                 surf.fill(color)
                 self._tint[key] = surf
-
-    def update(self) -> None:
-        pass
 
     def render(self, screen: Surface, pos_offset: tuple[int, int] = (0, 0)) -> None:
         self.draw_base()
@@ -96,7 +102,7 @@ class Button(UIBase):
             self.box_model["offset_x"] + pos_offset[0],
             self.box_model["offset_y"] + pos_offset[1],
         )
-        self._origin = (pos[0] + self.box_model["left"], pos[1] + self.box_model["top"])
+        self._origin = pos
         base = (self.box_model["left"], self.box_model["top"])
         _, h = self.size
         if self.image is not None:

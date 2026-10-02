@@ -50,10 +50,10 @@ def generate_box_model(model: BoxModel) -> BoxModelResult:
         "top": padding_y + border_width,
         "offset_x": margin_x,
         "offset_y": margin_y,
-        "full_width": width,
-        "full_height": height,
-        "content_width": width - inner_x,
-        "content_height": height - inner_y,
+        "full_width": max(0, width),
+        "full_height": max(0, height),
+        "content_width": max(0, width - inner_x),
+        "content_height": max(0, height - inner_y),
     }
 
 
@@ -122,5 +122,5 @@ class UIBase:
         )
         screen.blit(self.local_surface, pos)
 
-    def update(self) -> None:
+    def update(self, dt: float = 0.0) -> None:
         pass

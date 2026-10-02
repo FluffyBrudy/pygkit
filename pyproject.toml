@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygkit"
-version = "1.2.1"
+version = "2.0.0"
 description = "General-purpose Pygame CE runtime kit: UI widgets, audio, timers, interpolation, and more."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,8 +37,9 @@ animation = []
 lighting = []
 transitions = []
 inventory = []
+parallax = []
 all = [
-  "pygkit[ui, audio, animation, lighting, transitions, inventory]",
+  "pygkit[ui, audio, animation, lighting, transitions, inventory, parallax]",
 ]
 
 [project.urls]

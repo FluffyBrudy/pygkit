@@ -41,7 +41,7 @@ def main() -> None:
         name_font_size=24,
         typewriter_speed=TypewriterSpeed.MEDIUM,
         show_indicator=True,
-        indicator_blink_interval=500,
+        indicator_blink_interval=0.5,
     )
 
     config.colors.box_background = (54, 68, 60, 200)

@@ -5,6 +5,7 @@ Needs: pygkit[all]
 """
 
 import math
+import random
 from pathlib import Path
 
 import pygame
@@ -50,8 +51,8 @@ mana_bar.set_progress(0.30)
 exp_bar.set_progress(0.0)
 
 
-dash_timer = Timer(3000, stale_init=True)
-shield_timer = Timer(5000, stale_init=True)
+dash_timer = Timer(3.0, start_finished=True)
+shield_timer = Timer(5.0, start_finished=True)
 dash_cd = CooldownOverlay(
     dash_timer, 40, overlay_color=(0, 0, 0, 80), border_color=(80, 200, 255), border_width=2, border_radius=4
 )
@@ -75,7 +76,7 @@ particles = []
 
 def add_particles(x, y, count=12):
     for _ in range(count):
-        angle = math.radians(pygame.time.get_ticks() % 360)
+        angle = random.uniform(0, math.tau)
         speed = 1 + 3
         particles.append(
             {
@@ -148,11 +149,11 @@ while running:
         if p["life"] <= 0:
             particles.remove(p)
 
-    hp_bar.update()
-    mana_bar.update()
-    exp_bar.update()
-    dash_cd.update()
-    shield_cd.update()
+    hp_bar.update(dt)
+    mana_bar.update(dt)
+    exp_bar.update(dt)
+    dash_cd.update(dt)
+    shield_cd.update(dt)
 
     screen = pygame.display.get_surface()
     screen.fill((20, 22, 30))

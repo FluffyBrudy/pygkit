@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.0.0
+
+One rule for time now: everything takes `dt` in seconds. Give each
+thing its `dt` every frame and the whole game pauses and slows down
+together:
+
+```python
+cooldown = Timer(3.0)
+
+while running:
+    dt = clock.tick(60) / 1000
+    cooldown.update(dt)
+    dialog.update(dt)
+    player.update(dt)
+    if cooldown.reached():
+        ...
+```
+
+What changed:
+
+- `Timer` takes seconds (like `3.0` for 3 seconds) and only moves when
+  you call `update(dt)`. You can pause, resume, slow down, and repeat
+  any timer. If you used the old `Timer`, swap millisecond numbers for
+  seconds (`3000` becomes `3.0`) and add one `update(dt)` per frame.
+- Animations use seconds too (`player.update(dt)` instead of
+  milliseconds), so there is only one unit to remember.
+- Dialog boxes, cooldown icons, and containers all update with `update(dt)`.
+- Fades, wipes, and shakes can be paused, reject bad durations instead
+  of crashing, and start in a clean idle state.
+- Progress bars smooth out based on real time, so they look the same
+  at 30 fps and 144 fps.
+- Sounds: fade-ins actually fade now, and stopping or muting one sound
+  affects every copy of it playing.
+- Lights: changing a light's size or color takes effect right away,
+  and bad sizes are rejected instead of drawing garbage.
+- Inventory drag-and-drop no longer loses or duplicates items, and
+  inventory panels can be shown and hidden.
+- Buttons and menus accept all layout options, and clicking them hits
+  where you expect.
+- New `pygkit.parallax` subsystem: `ParallaxBackground` / `ParallaxLayer`
+  with per-axis factors and `tile` / `clamp` / `once` modes, plus a small
+  `Camera2D` (follow, deadzone, bounds, drift, shake). See `examples/parallax/`
+  and the `examples/assets/grotto` fixture art.
+
 ## Unreleased
 
 ### Features
@@ -10,6 +54,10 @@
   `pip install "pygkit[ui]"`, `...[all]` for everything.
 - `pygkit.inventory` names now resolve from the top level
   (`from pygkit import Inventory`).
+- `SoundManager.play` returns the live `Channel`; new `volume` /
+  `fade_ms` playback kwargs. Kind/key addressing via `channel_for`
+  / `playing`, scoped `stop` / `fadeout`, and master x kind x sound
+  volume buses with live-apply (`set_volume` / `get_volume`).
 - Added `pygkit.ui.Button`: text or image-backed button with typed
   `ButtonStyle` tint overlays, `on_press` signal, passive
   press/activate hit-testing. Added `pygkit.ui.Menubar`: container
