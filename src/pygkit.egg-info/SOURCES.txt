@@ -45,8 +45,11 @@ src/pygkit/utils/text.py
 src/pygkit/utils/timer.py
 tests/test_anchors.py
 tests/test_animation.py
+tests/test_audio.py
 tests/test_box_model.py
 tests/test_button.py
+tests/test_container.py
+tests/test_cooldown.py
 tests/test_dialog.py
 tests/test_interpolation.py
 tests/test_inventory.py

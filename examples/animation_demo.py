@@ -84,7 +84,7 @@ def main() -> None:
     frame_count = 0
     running = True
     while running:
-        dt_ms = clock.tick(60)
+        dt = clock.tick(60) / 1000.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -100,7 +100,7 @@ def main() -> None:
                 elif event.key == pygame.K_r:
                     player.reset()
 
-        player.update(dt_ms)
+        player.update(dt)
 
         screen.fill((24, 26, 34))
         pygame.draw.rect(screen, (46, 52, 66), (0, GROUND_Y, W, H - GROUND_Y))

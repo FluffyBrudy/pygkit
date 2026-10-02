@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import math
+import copy
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -12,7 +12,7 @@ from pygame.font import Font
 from pygame.typing import ColorLike
 
 from ..ui.base import UIBase, UIOptions
-from ..utils.text import load_font, render_multiline, wrap
+from ..utils.text import load_font, wrap
 from ..utils.timer import Timer
 
 
@@ -83,7 +83,7 @@ class DialogConfig:
     colors: DialogColors = field(default_factory=DialogColors)
 
     show_indicator: bool = True
-    indicator_blink_interval: int = 500
+    indicator_blink_interval: float = 0.5
     indicator_size: int = 12
 
 
@@ -128,7 +128,7 @@ class DialogBox(UIBase):
         Args:
             config: Configuration object. Uses defaults if not provided.
         """
-        self.config = config or DialogConfig()
+        self.config = copy.deepcopy(config) if config is not None else DialogConfig()
 
         options: UIOptions = {
             "width": self.config.width,
@@ -157,10 +157,12 @@ class DialogBox(UIBase):
         self._current_line: Optional[DialogLine] = None
         self._displayed_text: str = ""
         self._char_index: int = 0
-        self._typewriter_timer: Timer = Timer(0, stale_init=True)
+        self._char_interval: float = self.config.typewriter_speed.value
+        self._type_acc: float = 0.0
         self._is_complete: bool = False
-        self._auto_advance_timer: Timer = Timer(0, stale_init=True)
-        self._indicator_blink_timer: Timer = Timer(self.config.indicator_blink_interval, stale_init=True)
+        self._auto_advance_timer: Timer = Timer(0.0, start_finished=True)
+        self._auto_ready: bool = False
+        self._indicator_blink_timer: Timer = Timer(self.config.indicator_blink_interval, loop=True)
         self._indicator_visible: bool = True
 
         self._content_rect = pygame.Rect(
@@ -188,11 +190,16 @@ class DialogBox(UIBase):
         self._char_index = 0
         self._is_complete = False
 
-        char_interval = self.config.typewriter_speed.value * 1000
-        self._typewriter_timer = Timer(char_interval, stale_init=False)
+        self._char_interval = self.config.typewriter_speed.value
+        self._type_acc = 0.0
+        self._auto_ready = False
+        self._indicator_blink_timer.duration = self.config.indicator_blink_interval
+        self._indicator_blink_timer.reset()
 
         if self.config.auto_advance_delay > 0:
-            self._auto_advance_timer = Timer(int(self.config.auto_advance_delay * 1000), stale_init=True)
+            self._auto_advance_timer = Timer(self.config.auto_advance_delay, start_finished=True)
+        else:
+            self._auto_advance_timer = Timer(0.0, start_finished=True)
 
         if speaker:
             self._name_surface = self._render_text_with_outline(
@@ -225,6 +232,10 @@ class DialogBox(UIBase):
             if self._current_line.callback:
                 self._current_line.callback()
 
+            if self.config.auto_advance_delay > 0:
+                self._auto_advance_timer.reset()
+                self._auto_ready = False
+
             return True
         return False
 
@@ -239,33 +250,21 @@ class DialogBox(UIBase):
             return self.skip_to_end()
         return True
 
-    def update(self, dt: Optional[float] = None) -> None:
-        """
-        Update dialog state (typewriter effect, animations).
-
-        Args:
-            dt: Delta time in seconds. If None, uses clock tick.
-        """
+    def update(self, dt: float = 0.0) -> None:
         if not self._current_line:
             return
 
         if not self._is_complete:
             text_len = len(self._current_line.text)
-            elapsed = self._typewriter_timer.elapsed()
-            interval = self._typewriter_timer.interval
-
-            if elapsed >= interval and interval > 0:
-                chars_to_add = max(1, int(elapsed / interval))
-
-                if self._char_index < text_len:
-                    old_index = self._char_index
-                    self._char_index = min(text_len, self._char_index + chars_to_add)
-                    self._displayed_text = self._current_line.text[: self._char_index]
-
-                    if self._char_index != old_index:
-                        self._needs_rebuild = True
-
-                    self._typewriter_timer.reset()
+            if self._char_interval <= 0:
+                self._char_index = text_len
+            else:
+                self._type_acc += max(0.0, dt)
+                while self._type_acc >= self._char_interval and self._char_index < text_len:
+                    self._type_acc -= self._char_interval
+                    self._char_index += 1
+                    self._needs_rebuild = True
+            self._displayed_text = self._current_line.text[: self._char_index]
 
             if self._char_index >= text_len:
                 self._is_complete = True
@@ -277,16 +276,15 @@ class DialogBox(UIBase):
 
                 if self.config.auto_advance_delay > 0:
                     self._auto_advance_timer.reset()
+                    self._auto_ready = False
 
         elif self.config.auto_advance_delay > 0:
-            if self._auto_advance_timer.reached():
-                pass
+            if self._auto_advance_timer.update(dt):
+                self._auto_ready = True
 
         if self._is_complete and self.config.show_indicator:
-            self._indicator_blink_timer.reset()
-            if self._indicator_blink_timer.reached():
+            if self._indicator_blink_timer.update(dt):
                 self._indicator_visible = not self._indicator_visible
-                self._indicator_blink_timer.reset()
 
     def _render_text_with_outline(
         self,
@@ -431,16 +429,13 @@ class DialogBox(UIBase):
         return self._current_line.text if self._current_line else ""
 
     def set_typewriter_speed(self, speed: TypewriterSpeed) -> None:
-        """
-        Change typewriter speed dynamically.
-
-        Useful for dramatic pauses or fast-forward effects.
-        """
         self.config.typewriter_speed = speed
-
         if not self._is_complete:
-            char_interval = speed.value * 1000
-            self._typewriter_timer.interval = int(char_interval)
+            self._char_interval = speed.value
+
+    @property
+    def auto_advance_ready(self) -> bool:
+        return self._is_complete and self._auto_ready
 
     def clear(self) -> None:
         """Clear current dialog and reset state."""
@@ -448,8 +443,14 @@ class DialogBox(UIBase):
         self._displayed_text = ""
         self._char_index = 0
         self._is_complete = False
+        self._char_interval = self.config.typewriter_speed.value
+        self._type_acc = 0.0
+        self._auto_ready = False
+        self._auto_advance_timer.reset()
+        self._indicator_blink_timer.reset()
         self._name_surface = None
         self._text_surfaces = []
+        self._needs_rebuild = False
         self._indicator_visible = False
 
 

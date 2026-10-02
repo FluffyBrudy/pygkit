@@ -26,7 +26,7 @@ class ProgressBarUI(UIBase):
         options: UIOptions = {**PROGRESSBAR_DEFAULTS, **overrides}
         super().__init__(options)
         self.colors["fill"] = options.get("fill_color", (255, 255, 255, 255))
-        self.interpolation = SimpleInterpolation(speed=0.05)
+        self.interpolation = SimpleInterpolation(speed=3.0)
 
     def set_progress(self, value: float) -> None:
         self.interpolation.set(value)
@@ -34,8 +34,8 @@ class ProgressBarUI(UIBase):
     def get_progress(self) -> float:
         return self.interpolation.current
 
-    def update(self) -> None:
-        self.interpolation.update()
+    def update(self, dt: float = 0.0) -> None:
+        self.interpolation.update(dt)
 
     def render(self, screen: Surface, pos_offset: tuple[int, int] = (0, 0)) -> None:
         self.draw_base()

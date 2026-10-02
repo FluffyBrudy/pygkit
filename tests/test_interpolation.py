@@ -39,35 +39,44 @@ class TestEasingFunctions:
 
 class TestSimpleInterpolation:
     def test_init(self):
-        s = SimpleInterpolation(1.0, 0.1)
+        s = SimpleInterpolation(1.0, 6.0)
         assert s.current == 1.0
         assert s.target == 1.0
 
     def test_set(self):
-        s = SimpleInterpolation(0, 0.5)
+        s = SimpleInterpolation(0, 30.0)
         s.set(0.5)
         assert s.target == 0.5
 
     def test_set_clamps(self):
-        s = SimpleInterpolation(0, 0.5)
+        s = SimpleInterpolation(0, 30.0)
         s.set(1.5)
         assert s.target == 1.0
         s.set(-0.5)
         assert s.target == 0.0
 
     def test_update_converges(self):
-        s = SimpleInterpolation(0, 1.0)
+        s = SimpleInterpolation(0, 60.0)
         s.set(1.0)
-        s.update()
+        s.update(1.0)
         assert s.current == 1.0
 
+    def test_update_scales_with_dt(self):
+        fast = SimpleInterpolation(0, 6.0)
+        slow = SimpleInterpolation(0, 6.0)
+        fast.set(1.0)
+        slow.set(1.0)
+        fast.update(1 / 60)
+        slow.update(1 / 120)
+        assert fast.current > slow.current > 0.0
+
     def test_finished(self):
-        s = SimpleInterpolation(0, 1.0)
+        s = SimpleInterpolation(0, 60.0)
         s.set(1.0)
-        s.update()
+        s.update(1.0)
         assert s.finished() is True
 
     def test_not_finished(self):
-        s = SimpleInterpolation(0, 0.1)
+        s = SimpleInterpolation(0, 6.0)
         s.set(1.0)
         assert s.finished() is False

@@ -60,7 +60,7 @@ class TestFades:
         t.update(1.0)
         assert t.done is True
         t.reset()
-        assert t.done is False
+        assert t.done is True
         assert t._elapsed == 0.0
 
     def test_update_past_duration(self):
@@ -111,6 +111,42 @@ class TestEffects:
         t.update(0.3)
         assert t.done is True
         assert t._offset == (0, 0)
+
+    def test_shake_zero_duration(self):
+        t = Shake()
+        t.start(0)
+        t.update(1.0)
+        assert t.done is True
+
+    def test_idle_render_does_not_crash(self):
+        screen = pygame.Surface((64, 48))
+        for transition in (FadeToBlack(), Slide("left"), PixelDissolve(), Shake()):
+            assert transition.done is True
+            transition.render(screen, source=screen, target=screen)
+            transition.reset()
+            assert transition.done is True
+
+    def test_negative_duration_raises(self):
+        with pytest.raises(ValueError):
+            FadeToBlack().start(-1.0)
+        with pytest.raises(ValueError):
+            Shake().start(-0.5)
+
+    def test_invalid_tile_size_raises(self):
+        with pytest.raises(ValueError):
+            PixelDissolve(0)
+        with pytest.raises(ValueError):
+            PixelDissolve(-4)
+
+    def test_pause_freezes(self):
+        t = FadeToBlack()
+        t.start(1.0)
+        t.pause()
+        t.update(0.5)
+        assert t._elapsed == 0.0
+        t.resume()
+        t.update(0.5)
+        assert t.done is False
 
 
 class TestTransitionRunner:

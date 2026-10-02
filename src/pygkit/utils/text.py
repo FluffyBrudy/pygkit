@@ -134,14 +134,11 @@ def fit(
     max_height: int,
     min_size: int = 8,
 ) -> int:
-    size = font.get_height()
-    while size >= min_size:
-        try:
-            test = Font(font.name, size)
-        except FileNotFoundError:
-            test = Font(None, size)
-        w, h = test.size(text)
-        if w <= max_width and h <= max_height:
-            return size
-        size -= 1
-    return min_size
+    w, h = font.size(text)
+    point_size = font.get_point_size()
+    if w <= 0 or h <= 0:
+        return max(min_size, point_size)
+    scale = min(max_width / w, max_height / h)
+    if scale >= 1:
+        return point_size
+    return max(min_size, int(point_size * scale))

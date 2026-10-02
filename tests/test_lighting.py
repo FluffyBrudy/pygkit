@@ -4,6 +4,7 @@ import math
 import time
 
 import pygame
+import pytest
 
 from pygkit.lighting import (
     DynamicLight,
@@ -308,3 +309,68 @@ def test_dynamic_regen_perf_budget():
         dynamic_glow_sprite(radius=30, wind=(1.0, 0.5))
     elapsed = time.perf_counter() - t0
     assert elapsed < 1.0  # still catches pathological regressions
+
+
+def test_mutating_radius_rebuilds_sprite():
+    light = PointLight(radius=40)
+    before = light.sprite()
+    light.radius = 80
+    after = light.sprite()
+    assert before is not after
+    assert after.get_width() == 160
+
+
+def test_mutating_spotlight_cone_clears_rotation_cache():
+    light = Spotlight(radius=60)
+    light.set_direction(0.5)
+    light.sprite()
+    assert len(light._rotations) > 0
+    light.cone = 0.9
+    assert light._rotations == {}
+
+
+def test_dynamic_sprite_needs_lightmap():
+    with pytest.raises(ValueError):
+        DynamicLight(radius=60).sprite(None)
+
+
+def test_lightmap_rejects_bad_scale():
+    for bad in (0, -1.0, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            LightMap((64, 48), scale=bad)
+
+
+def test_sprite_peek_does_not_advance_interval():
+    lm = LightMap((100, 100), scale=0.5)
+    light = DynamicLight(radius=30)
+    light.set_regen_interval(3)
+    light.render(lm, 50, 50)
+    light.render(lm, 50, 50)
+    before = light._frames
+    light.sprite(lm)
+    light.sprite(lm)
+    assert light._frames == before
+
+
+def test_hidden_render_still_counts_interval():
+    lm = LightMap((100, 100), scale=0.5)
+    light = DynamicLight(radius=30, intensity=0.0)
+    light.set_regen_interval(2)
+    light.render(lm, 50, 50)
+    before = light._frames
+    light.render(lm, 50, 50)
+    assert light._frames == before + 1
+
+
+def test_same_frame_peeks_bake_once():
+    lm = LightMap((200, 200), scale=0.5)
+    light = DynamicLight(radius=60)
+    light.set_wind(30.0, 5.0)
+    light.set_regen_interval(2)
+    light.render(lm, 100, 100)
+    light.render(lm, 100, 100)
+    bakes = light._regen_counter
+    first = light.sprite(lm)
+    assert light.sprite(lm) is first
+    assert light.sprite(lm) is first
+    assert light._regen_counter == bakes

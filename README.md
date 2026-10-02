@@ -14,7 +14,7 @@ import pygkit
 - **Animation**: Multi-state `AnimationPlayer` where every state owns its own spritesheet — mixed image sizes and grids (e.g. `idle_spritesheet.png` vs `run_spritesheet.png`) in one player; pure image API, no JSON
 - **Dialog**: Typewriter effect with customizable speeds, speaker names, and progress indicators
 - **Inventory**: Grid-based item management with stacking, weight tracking, events, and serialization
-- **Audio**: SoundManager with channel pools and explicit targeting
+- **Audio**: SoundManager with channel pools, kind/key addressing, volume buses, fades
 - **Lighting**: low-resolution light map pipeline (`LightMap`), point lights
   with flicker, wind-reactive `DynamicLight` flames, and cone `Spotlight` —
   full RGB/RGBA blend modes, allocation-free per frame
