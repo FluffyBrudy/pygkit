@@ -249,9 +249,32 @@ class TestDialogBox:
 
         initial_text = dialog.current_text
         for _ in range(100):
-            dialog.update()
+            dialog.update(0.016)
 
         assert len(dialog.current_text) >= len(initial_text)
+
+    def test_auto_advance_ready(self):
+        """Test auto-advance flag flips after the delay elapses."""
+        config = DialogConfig(auto_advance_delay=0.5)
+        dialog = DialogBox(config)
+        dialog.set_dialog("Test", "Hi")
+        dialog.skip_to_end()
+        assert dialog.auto_advance_ready is False
+        dialog.update(0.25)
+        assert dialog.auto_advance_ready is False
+        dialog.update(0.25)
+        assert dialog.auto_advance_ready is True
+
+    def test_indicator_blinks_over_time(self):
+        """Test the progress indicator toggles instead of sticking."""
+        dialog = DialogBox()
+        dialog.set_dialog("Test", "Hi")
+        dialog.skip_to_end()
+        seen = set()
+        for _ in range(200):
+            dialog.update(0.05)
+            seen.add(dialog._indicator_visible)
+        assert seen == {True, False}
 
     def test_empty_text(self):
         """Test handling empty text."""

@@ -6,6 +6,7 @@ renders itself onto a LightMap in a single small blit::
 
     torch = PointLight(radius=140, color=(255, 190, 120))
     torch.set_flicker(frequency=8.0, amplitude=0.2)
+    torch.advance(dt)
     torch.render(lightmap, player.x, player.y)
 """
 
@@ -63,16 +64,17 @@ class PointLight:
     """
     Radial light with a cached glow sprite and optional organic flicker.
 
-    The sprite (and its per-light copy) is generated once; per frame the
-    cost is one ``set_alpha`` and one small blit.
+    The sprite is generated once and cached; per frame the cost is one
+    small blit. Changing ``radius``, ``color``, ``falloff`` or
+    ``exponent`` drops the cache so the next render rebuilds it.
     """
 
     __slots__ = (
-        "radius",
-        "color",
+        "_radius",
+        "_color",
         "intensity",
-        "falloff",
-        "exponent",
+        "_falloff",
+        "_exponent",
         "_freq",
         "_amp",
         "_jitter",
@@ -99,6 +101,44 @@ class PointLight:
         self._time = 0.0
         self._sprite: Surface | None = None
 
+    @property
+    def radius(self) -> int:
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: int) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"radius must be an int >= 1, got {value!r}")
+        self._radius = value
+        self._sprite = None
+
+    @property
+    def color(self) -> tuple[int, int, int]:
+        return self._color
+
+    @color.setter
+    def color(self, value: tuple[int, int, int]) -> None:
+        self._color = value
+        self._sprite = None
+
+    @property
+    def falloff(self) -> str:
+        return self._falloff
+
+    @falloff.setter
+    def falloff(self, value: str) -> None:
+        self._falloff = value
+        self._sprite = None
+
+    @property
+    def exponent(self) -> float:
+        return self._exponent
+
+    @exponent.setter
+    def exponent(self, value: float) -> None:
+        self._exponent = float(value)
+        self._sprite = None
+
     def set_flicker(
         self,
         frequency: float = 8.0,
@@ -117,13 +157,15 @@ class PointLight:
 
     def advance(self, dt: float) -> None:
         """Advance flicker time by ``dt`` seconds."""
-        self._time += dt
+        if dt < 0 or not math.isfinite(dt):
+            return
+        self._time = (self._time + dt) % 3600.0
 
-    def sprite(self) -> Surface:
+    def sprite(self, lightmap: LightMap | None = None) -> Surface:
         """The light's private glow sprite (do not mutate externally)."""
         if self._sprite is None:
             self._sprite = glow_sprite(
-                self.radius, self.color, self.falloff, self.exponent
+                self._radius, self._color, self._falloff, self._exponent
             ).copy()
         return self._sprite
 
@@ -135,7 +177,7 @@ class PointLight:
         self, lightmap: LightMap, x: float, y: float, blend: int = LIGHT_ADD
     ) -> None:
         """Blit the light centered at scene coordinates ``(x, y)``."""
-        alpha = int(255 * self.intensity * self.modulation())
+        alpha = int(255 * max(0.0, self.intensity) * self.modulation())
         if alpha <= 0:
             return
         sprite = _dimmed(self.sprite(), alpha)
@@ -152,15 +194,19 @@ class Spotlight:
     """
 
     __slots__ = (
-        "radius",
-        "color",
+        "_radius",
+        "_color",
         "intensity",
-        "cone",
-        "softness",
-        "falloff",
-        "exponent",
+        "_cone",
+        "_softness",
+        "_falloff",
+        "_exponent",
         "direction",
-        "rotation_step",
+        "_rotation_step",
+        "_freq",
+        "_amp",
+        "_jitter",
+        "_time",
         "_base",
         "_rotations",
     )
@@ -185,8 +231,81 @@ class Spotlight:
         self.exponent = exponent
         self.direction = 0.0
         self.rotation_step = rotation_step
+        self._freq = 0.0
+        self._amp = 0.0
+        self._jitter = 0.0
+        self._time = 0.0
         self._base: Surface | None = None
         self._rotations: dict[float, Surface] = {}
+
+    def _drop_cache(self) -> None:
+        self._base = None
+        self._rotations = {}
+
+    @property
+    def radius(self) -> int:
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: int) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"radius must be an int >= 1, got {value!r}")
+        self._radius = value
+        self._drop_cache()
+
+    @property
+    def color(self) -> tuple[int, int, int]:
+        return self._color
+
+    @color.setter
+    def color(self, value: tuple[int, int, int]) -> None:
+        self._color = value
+        self._drop_cache()
+
+    @property
+    def cone(self) -> float:
+        return self._cone
+
+    @cone.setter
+    def cone(self, value: float) -> None:
+        self._cone = float(value)
+        self._drop_cache()
+
+    @property
+    def softness(self) -> float:
+        return self._softness
+
+    @softness.setter
+    def softness(self, value: float) -> None:
+        self._softness = float(value)
+        self._drop_cache()
+
+    @property
+    def falloff(self) -> str:
+        return self._falloff
+
+    @falloff.setter
+    def falloff(self, value: str) -> None:
+        self._falloff = value
+        self._drop_cache()
+
+    @property
+    def exponent(self) -> float:
+        return self._exponent
+
+    @exponent.setter
+    def exponent(self, value: float) -> None:
+        self._exponent = float(value)
+        self._drop_cache()
+
+    @property
+    def rotation_step(self) -> float:
+        return self._rotation_step
+
+    @rotation_step.setter
+    def rotation_step(self, value: float) -> None:
+        self._rotation_step = float(value)
+        self._rotations = {}
 
     def set_direction(self, angle: float) -> None:
         """
@@ -195,25 +314,46 @@ class Spotlight:
         """
         self.direction = angle
 
+    def set_flicker(
+        self,
+        frequency: float = 8.0,
+        amplitude: float = 0.15,
+        jitter: float = 0.05,
+    ) -> None:
+        """Enable flame-like brightness flicker (``frequency <= 0`` off)."""
+        self._freq = frequency
+        self._amp = max(0.0, min(0.9, amplitude))
+        self._jitter = max(0.0, jitter)
+
+    def advance(self, dt: float) -> None:
+        """Advance flicker time by ``dt`` seconds."""
+        if dt < 0 or not math.isfinite(dt):
+            return
+        self._time = (self._time + dt) % 3600.0
+
+    def modulation(self) -> float:
+        """Current flicker multiplier in [0, 1]."""
+        return flicker_value(self._freq, self._amp, self._jitter, self._time)
+
     def _base_sprite(self) -> Surface:
         if self._base is None:
             self._base = spotlight_sprite(
-                self.radius,
-                self.color,
-                self.cone,
-                self.softness,
-                self.falloff,
-                self.exponent,
+                self._radius,
+                self._color,
+                self._cone,
+                self._softness,
+                self._falloff,
+                self._exponent,
             ).copy()
         return self._base
 
-    def sprite(self) -> Surface:
+    def sprite(self, lightmap: LightMap | None = None) -> Surface:
         """Rotated sprite for the current direction (cached by angle bucket)."""
-        if self.rotation_step <= 0:
+        if self._rotation_step <= 0:
             return self._base_sprite()
 
-        step = math.radians(self.rotation_step)
-        key = round(self.direction / step) * step
+        step = math.radians(self._rotation_step)
+        key = round((self.direction % (2 * math.pi)) / step) * step
         key %= 2 * math.pi
 
         cached = self._rotations.get(key)
@@ -222,7 +362,7 @@ class Spotlight:
 
         rotated = pygame.transform.rotate(self._base_sprite(), -math.degrees(key))
         self._rotations[key] = rotated
-        capacity = math.ceil(360.0 / max(self.rotation_step, 1e-3))
+        capacity = math.ceil(360.0 / max(self._rotation_step, 1e-3))
         if len(self._rotations) > capacity:
             self._rotations.pop(next(iter(self._rotations)))
         return rotated
@@ -231,7 +371,7 @@ class Spotlight:
         self, lightmap: LightMap, x: float, y: float, blend: int = LIGHT_ADD
     ) -> None:
         """Blit the cone centered at scene coordinates ``(x, y)``."""
-        alpha = int(255 * self.intensity)
+        alpha = int(255 * max(0.0, self.intensity) * self.modulation())
         if alpha <= 0:
             return
         sprite = _dimmed(self.sprite(), alpha)
@@ -285,13 +425,13 @@ class DynamicLight:
     """
 
     __slots__ = (
-        "radius",
-        "color",
+        "_radius",
+        "_color",
         "intensity",
-        "exponent",
-        "stretch",
-        "core_shift",
-        "seed",
+        "_exponent",
+        "_stretch",
+        "_core_shift",
+        "_seed",
         "wind",
         "_freq",
         "_amp",
@@ -302,6 +442,8 @@ class DynamicLight:
         "_bake_scale",
         "_regen_interval",
         "_regen_counter",
+        "_last_baked_frame",
+        "_frames",
     )
 
     def __init__(
@@ -332,9 +474,71 @@ class DynamicLight:
         self._bake_scale = 0.0
         self._regen_interval = 0
         self._regen_counter = 0
+        self._last_baked_frame: int | None = None
+        self._frames = 0
+
+    def _drop_cache(self) -> None:
+        self._sprite = None
+        self._bucket = None
+
+    @property
+    def radius(self) -> int:
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: int) -> None:
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"radius must be an int >= 1, got {value!r}")
+        self._radius = value
+        self._drop_cache()
+
+    @property
+    def color(self) -> tuple[int, int, int]:
+        return self._color
+
+    @color.setter
+    def color(self, value: tuple[int, int, int]) -> None:
+        self._color = value
+        self._drop_cache()
+
+    @property
+    def exponent(self) -> float:
+        return self._exponent
+
+    @exponent.setter
+    def exponent(self, value: float) -> None:
+        self._exponent = float(value)
+        self._drop_cache()
+
+    @property
+    def stretch(self) -> float:
+        return self._stretch
+
+    @stretch.setter
+    def stretch(self, value: float) -> None:
+        self._stretch = float(value)
+        self._drop_cache()
+
+    @property
+    def core_shift(self) -> float:
+        return self._core_shift
+
+    @core_shift.setter
+    def core_shift(self, value: float) -> None:
+        self._core_shift = float(value)
+        self._drop_cache()
+
+    @property
+    def seed(self) -> int:
+        return self._seed
+
+    @seed.setter
+    def seed(self, value: int) -> None:
+        self._seed = value
+        self._drop_cache()
 
     def set_wind(self, vx: float, vy: float) -> None:
-        """Set the flow vector directly (scene units, e.g. px per frame)."""
+        """Set the flow vector directly (scene units per second)."""
         self.wind = (vx, vy)
 
     def set_direction(self, direction: float, strength: float = 1.0) -> None:
@@ -344,11 +548,10 @@ class DynamicLight:
         particle systems use for their ``direction`` presets.
 
         The strength is normalized to the light's radius, so 1.0 produces
-        the full elongation/lean (the same scale ``set_wind`` expresses in
-        px per frame, where ``radius * 0.6`` px/frame is full strength).
+        the full elongation/lean.
         """
         angle = math.radians(direction)
-        scale = strength * max(1.0, self.radius * 0.6)
+        scale = strength * max(1.0, self._radius * 0.6)
         self.wind = (math.cos(angle) * scale, math.sin(angle) * scale)
 
     def set_flicker(
@@ -372,22 +575,24 @@ class DynamicLight:
 
     def advance(self, dt: float) -> None:
         """Advance flicker time by ``dt`` seconds."""
-        self._time += dt
+        if dt < 0 or not math.isfinite(dt):
+            return
+        self._time = (self._time + dt) % 3600.0
 
     def modulation(self) -> float:
         """Current flicker multiplier in [0, 1]."""
         return flicker_value(self._freq, self._amp, self._jitter, self._time)
 
     def _bake(self, lightmap: LightMap) -> Surface:
-        lm_radius = max(2, round(self.radius * lightmap.scale))
-        phase = self.seed + (self._regen_counter % 97)
+        lm_radius = max(2, round(self._radius * lightmap.scale))
+        phase = self._seed + (self._regen_counter % 97)
         sprite = dynamic_glow_sprite(
             lm_radius,
-            self.color,
+            self._color,
             self.wind,
-            self.stretch,
-            self.core_shift,
-            self.exponent,
+            self._stretch,
+            self._core_shift,
+            self._exponent,
             phase,
         )
         self._bake_scale = lightmap.scale
@@ -395,18 +600,25 @@ class DynamicLight:
         # changes must not leak across lights
         return sprite.copy()
 
-    def sprite(self, lightmap: LightMap) -> Surface:
+    def sprite(self, lightmap: LightMap | None = None) -> Surface:
         """
         Current sprite at light map resolution; regenerates when the wind
         bucket changes, the light map scale changes (or a regen interval
         is set and due).
         """
-        bucket = _wind_bucket(self.wind[0], self.wind[1], self.radius)
-        self._regen_counter += 1
-        force = self._regen_interval > 0 and self._regen_counter % self._regen_interval == 0
-        scale_changed = lightmap.scale != self._bake_scale
-        if self._sprite is None or bucket != self._bucket or force or scale_changed:
+        if lightmap is None:
+            raise ValueError("DynamicLight.sprite() needs a lightmap")
+        bucket = _wind_bucket(self.wind[0], self.wind[1], self._radius)
+        due = (
+            self._regen_interval > 0
+            and self._frames % self._regen_interval == 0
+            and self._last_baked_frame != self._frames
+        )
+        scale_changed = abs(lightmap.scale - self._bake_scale) > 1e-9
+        if self._sprite is None or bucket != self._bucket or due or scale_changed:
             self._bucket = bucket
+            self._regen_counter += 1
+            self._last_baked_frame = self._frames
             self._sprite = self._bake(lightmap)
         return self._sprite
 
@@ -414,7 +626,8 @@ class DynamicLight:
         self, lightmap: LightMap, x: float, y: float, blend: int = LIGHT_ADD
     ) -> None:
         """Blit the light centered at scene coordinates ``(x, y)``."""
-        alpha = int(255 * self.intensity * self.modulation())
+        self._frames += 1
+        alpha = int(255 * max(0.0, self.intensity) * self.modulation())
         if alpha <= 0:
             return
         sprite = _dimmed(self.sprite(lightmap), alpha)

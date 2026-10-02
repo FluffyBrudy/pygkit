@@ -50,7 +50,7 @@ def main() -> None:
     count = 0
     running = True
     while running:
-        dt_ms = clock.tick(60)
+        dt = clock.tick(60) / 1000.0
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -58,7 +58,7 @@ def main() -> None:
                 running = False
             else:
                 bar.handle_event(event)
-        bar.update()
+        bar.update(dt)
 
         screen.fill((25, 25, 35))
         bar.render(screen, (20, 20))

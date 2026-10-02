@@ -3,37 +3,65 @@ from typing import Callable
 from pygame import SRCALPHA, Surface
 
 from ..utils.interpolation import ease_in_out
+from .base import _check_dt, _check_duration
+
+
+def _check_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
+    if len(color) != 3 or any(not isinstance(c, int) or c < 0 or c > 255 for c in color):
+        raise ValueError(f"color must be 3 ints 0-255, got {color!r}")
+    return color
 
 
 class _FadeBase:
-    __slots__ = ("_color", "_easing", "_overlay", "_elapsed", "_duration", "_done")
+    __slots__ = ("_color", "_easing", "_overlay", "_elapsed", "_duration", "_done", "_paused")
 
     def __init__(
         self,
         color: tuple[int, int, int] = (0, 0, 0),
         easing: Callable[[float], float] = ease_in_out,
     ) -> None:
-        self._color = color
+        self._color = _check_color(color)
         self._easing = easing
         self._overlay: Surface | None = None
         self._elapsed = 0.0
         self._duration = 0.0
         self._done = True
+        self._paused = False
 
     def start(self, duration: float) -> None:
         self._elapsed = 0.0
-        self._duration = duration
+        self._duration = _check_duration(duration)
         self._done = False
+        self._paused = False
 
     @property
     def done(self) -> bool:
         return self._done
 
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     def reset(self) -> None:
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._overlay = None
+
+    def _advance(self, dt: float) -> None:
+        if self._done or self._paused:
+            return
+        self._elapsed += _check_dt(dt)
+        if self._elapsed >= self._duration:
+            self._elapsed = self._duration
+            self._done = True
 
 
 class FadeToBlack(_FadeBase):
@@ -41,13 +69,10 @@ class FadeToBlack(_FadeBase):
     Fades the source surface to black.
     """
 
+    __slots__ = ()
+
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -77,13 +102,10 @@ class FadeFromBlack(_FadeBase):
     Fades from black to reveal the target surface.
     """
 
+    __slots__ = ()
+
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -113,16 +135,13 @@ class Crossfade(_FadeBase):
     Blends from source to target.
     """
 
+    __slots__ = ()
+
     def __init__(self, easing: Callable[[float], float] = ease_in_out) -> None:
         super().__init__(easing=easing)
 
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -155,6 +174,8 @@ class Flash(_FadeBase):
     Default duration 0.15s.
     """
 
+    __slots__ = ()
+
     def __init__(
         self,
         color: tuple[int, int, int] = (255, 255, 255),
@@ -166,12 +187,7 @@ class Flash(_FadeBase):
         super().start(0.15 if duration is None else duration)
 
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,

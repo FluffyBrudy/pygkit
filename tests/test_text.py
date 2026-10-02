@@ -89,7 +89,7 @@ class TestFit:
     def test_returns_font_size(self, font):
         size = fit(font, "hello", 200, 50)
         assert isinstance(size, int)
-        assert 8 <= size <= font.get_height()
+        assert 8 <= size <= font.get_point_size()
 
     def test_downscales(self, font):
         big = pygame.font.Font(None, 72)

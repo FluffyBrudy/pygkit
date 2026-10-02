@@ -29,13 +29,13 @@ hp_bar.set_progress(0.75)
 mana_bar.set_progress(0.45)
 
 
-dash_timer = Timer(3000, stale_init=True)
+dash_timer = Timer(3.0, start_finished=True)
 dash_cd = CooldownOverlay(dash_timer, 48, border_color=(100, 200, 255), border_width=2, border_radius=4)
 
-shield_timer = Timer(5000, stale_init=True)
+shield_timer = Timer(5.0, start_finished=True)
 shield_cd = CooldownOverlay(shield_timer, 48, border_color=(255, 220, 60), border_width=2, border_radius=4)
 
-ult_timer = Timer(8000, stale_init=True)
+ult_timer = Timer(8.0, start_finished=True)
 ult_cd = CooldownOverlay(ult_timer, 48, border_color=(255, 80, 120), border_width=2, border_radius=4)
 
 
@@ -70,9 +70,10 @@ while running:
     mana = mana_bar.get_progress()
     mana_bar.set_progress(max(0, mana - 0.001))
 
-    hp_bar.update()
-    mana_bar.update()
-    skills.update()
+    dt = clock.tick(60) / 1000.0
+    hp_bar.update(dt)
+    mana_bar.update(dt)
+    skills.update(dt)
 
     screen = cast(pygame.Surface, pygame.display.get_surface())
     screen.fill((25, 25, 35))
@@ -93,6 +94,5 @@ while running:
         y += 20
 
     pygame.display.flip()
-    clock.tick(60)
 
 pygame.quit()

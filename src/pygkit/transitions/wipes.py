@@ -4,32 +4,54 @@ from typing import Callable
 from pygame import SRCALPHA, Surface, draw
 
 from ..utils.interpolation import ease_in_out
+from .base import _check_dt, _check_duration
 
 
 class _WipeBase:
-    __slots__ = ("_easing", "_elapsed", "_duration", "_done", "_mask")
+    __slots__ = ("_easing", "_elapsed", "_duration", "_done", "_paused", "_mask")
 
     def __init__(self, easing: Callable[[float], float] = ease_in_out) -> None:
         self._easing = easing
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._mask: Surface | None = None
 
     def start(self, duration: float) -> None:
         self._elapsed = 0.0
-        self._duration = duration
+        self._duration = _check_duration(duration)
         self._done = False
+        self._paused = False
 
     @property
     def done(self) -> bool:
         return self._done
 
+    def pause(self) -> None:
+        self._paused = True
+
+    def resume(self) -> None:
+        self._paused = False
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
+
     def reset(self) -> None:
         self._elapsed = 0.0
         self._duration = 0.0
-        self._done = False
+        self._done = True
+        self._paused = False
         self._mask = None
+
+    def _advance(self, dt: float) -> None:
+        if self._done or self._paused:
+            return
+        self._elapsed += _check_dt(dt)
+        if self._elapsed >= self._duration:
+            self._elapsed = self._duration
+            self._done = True
 
 
 class IrisIn(_WipeBase):
@@ -37,21 +59,20 @@ class IrisIn(_WipeBase):
     Circle closes in from the edges to the center, revealing black (or a color).
     """
 
+    __slots__ = ("_color",)
+
     def __init__(
         self,
         color: tuple[int, int, int] = (0, 0, 0),
         easing: Callable[[float], float] = ease_in_out,
     ) -> None:
         super().__init__(easing)
+        if len(color) != 3 or any(not isinstance(c, int) or c < 0 or c > 255 for c in color):
+            raise ValueError(f"color must be 3 ints 0-255, got {color!r}")
         self._color = color
 
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -77,7 +98,7 @@ class IrisIn(_WipeBase):
         if self._mask is None or self._mask.get_size() != (w, h):
             self._mask = Surface((w, h), SRCALPHA)
 
-        self._mask.fill(self._color)
+        self._mask.fill((*self._color, 255))
         draw.circle(self._mask, (0, 0, 0, 0), (cx, cy), radius)
         screen.blit(self._mask, (0, 0))
 
@@ -87,6 +108,8 @@ class IrisOut(_WipeBase):
     Circle expands from the center outward, revealing the target.
     """
 
+    __slots__ = ()
+
     def __init__(
         self,
         easing: Callable[[float], float] = ease_in_out,
@@ -94,12 +117,7 @@ class IrisOut(_WipeBase):
         super().__init__(easing)
 
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -131,11 +149,14 @@ class Slide(_WipeBase):
     Source slides offscreen while target slides in from the opposite side.
     """
 
+    __slots__ = ("_direction", "_buffer")
+
     def __init__(
         self,
         direction: str = "left",
+        easing: Callable[[float], float] = ease_in_out,
     ) -> None:
-        super().__init__()
+        super().__init__(easing)
         if direction not in ("left", "right", "up", "down"):
             raise ValueError(
                 f"Invalid direction '{direction}'. Must be left, right, up, or down."
@@ -143,13 +164,12 @@ class Slide(_WipeBase):
         self._direction = direction
         self._buffer: Surface | None = None
 
+    def reset(self) -> None:
+        super().reset()
+        self._buffer = None
+
     def update(self, dt: float) -> None:
-        if self._done:
-            return
-        self._elapsed += dt
-        if self._elapsed >= self._duration:
-            self._elapsed = self._duration
-            self._done = True
+        self._advance(dt)
 
     def render(
         self,
@@ -158,7 +178,8 @@ class Slide(_WipeBase):
         target: Surface | None = None,
     ) -> None:
         w, h = screen.get_size()
-        t = self._elapsed / self._duration if self._duration > 0 else 1.0
+        raw = self._elapsed / self._duration if self._duration > 0 else 1.0
+        t = self._easing(raw)
 
         if self._direction == "left":
             out_offset = (-w * t, 0)

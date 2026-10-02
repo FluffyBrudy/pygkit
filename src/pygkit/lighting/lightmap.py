@@ -20,6 +20,8 @@ Frame usage::
 
 from __future__ import annotations
 
+import math
+
 import pygame
 from pygame import Surface
 
@@ -59,7 +61,9 @@ class LightMap:
                 for a chunky pixel-art light look
         """
         self._size = size
-        self._scale = scale
+        if not math.isfinite(scale) or scale <= 0:
+            raise ValueError(f"scale must be > 0, got {scale!r}")
+        self._scale = float(scale)
         self._pixelated = pixelated
         self._ambient_color = (0, 0, 0)
         self._ambient_intensity = 0.0
@@ -91,7 +95,9 @@ class LightMap:
 
     def set_scale(self, scale: float) -> None:
         """Recreate the light map at a new resolution fraction of ``size``."""
-        self._scale = scale
+        if not math.isfinite(scale) or scale <= 0:
+            raise ValueError(f"scale must be > 0, got {scale!r}")
+        self._scale = float(scale)
         lw = max(1, round(self._size[0] * scale))
         lh = max(1, round(self._size[1] * scale))
         self._lightmap = pygame.Surface((lw, lh), pygame.SRCALPHA)

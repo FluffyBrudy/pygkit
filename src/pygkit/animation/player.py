@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Callable
 
 from .sheet import AnimationSheet
+
+_UNSET: object = object()
 
 
 @dataclass
@@ -19,7 +22,7 @@ class AnimationPlayer:
 
     States are registered lazily via :meth:`play`; sheets may differ freely in
     pixel size and grid layout between states. Playback is time-based: feed
-    ``update(dt_ms)`` each frame and blit ``image``.
+    ``update(dt)`` each frame with delta time in seconds and blit ``image``.
     """
 
     __slots__ = (
@@ -89,13 +92,15 @@ class AnimationPlayer:
         *,
         fps: float | None = None,
         loop: bool | None = None,
-        on_finish: Callable[[], None] | None = None,
+        on_finish: Callable[[], None] | None | object = _UNSET,
+        restart: bool = False,
     ) -> None:
         """Switch to *name*, registering the state on first use.
 
         Registration requires *sheet*; omitted options fall back to the
         player defaults given at construction. Calling ``play`` for the state
-        already playing does not restart it — use :meth:`reset`.
+        already playing does not restart it unless ``restart`` is true.
+        Pass ``on_finish=None`` explicitly to clear a default callback.
         """
         if name not in self._states:
             if sheet is None:
@@ -106,37 +111,37 @@ class AnimationPlayer:
                 sheet=sheet,
                 fps=float(resolved_fps),
                 loop=self._default_loop if loop is None else bool(loop),
-                on_finish=self._default_on_finish if on_finish is None else on_finish,
+                on_finish=self._default_on_finish if on_finish is _UNSET else on_finish,
             )
 
-        if name == self._state_name:
+        if name == self._state_name and not restart:
             return
         self._state_name = name
         self.reset()
 
-    def update(self, dt_ms: float) -> None:
-        """Advance playback by *dt_ms* milliseconds of wall time."""
+    def update(self, dt: float) -> None:
+        """Advance playback by *dt* seconds."""
         if self._paused or self._state_name is None or self._finished:
             return
+        if not math.isfinite(dt) or dt < 0:
+            dt = 0.0
         state = self._states[self._state_name]
         frame_count = state.sheet.frame_count
-        frame_duration = 1000.0 / state.fps
-        self._elapsed_in_frame += max(0.0, dt_ms)
-        while self._elapsed_in_frame >= frame_duration:
-            self._elapsed_in_frame -= frame_duration
-            next_index = self._frame_index + 1
-            if next_index < frame_count:
-                self._frame_index = next_index
-                continue
-            if state.loop:
-                self._frame_index = 0
-            else:
-                self._frame_index = frame_count - 1
-                self._elapsed_in_frame = 0.0
-                self._finished = True
-                if state.on_finish is not None:
-                    state.on_finish()
-                break
+        frame_duration = 1.0 / state.fps
+        steps, self._elapsed_in_frame = divmod(self._elapsed_in_frame + dt, frame_duration)
+        steps = int(steps)
+        if steps <= 0:
+            return
+        if state.loop:
+            self._frame_index = (self._frame_index + steps) % frame_count
+        elif self._frame_index + steps >= frame_count:
+            self._frame_index = frame_count - 1
+            self._elapsed_in_frame = 0.0
+            self._finished = True
+            if state.on_finish is not None:
+                state.on_finish()
+        else:
+            self._frame_index += steps
 
     def pause(self) -> None:
         self._paused = True

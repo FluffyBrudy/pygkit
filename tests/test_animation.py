@@ -100,17 +100,17 @@ class TestAnimationPlayer:
 
     def test_update_advances_at_fps(self, idle_png: Path):
         player = AnimationPlayer()
-        player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)  # 100 ms per frame
-        player.update(100.0)
+        player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)  # 0.1s per frame
+        player.update(0.1)
         assert player.frame_index == 1
-        player.update(250.0)
+        player.update(0.25)
         assert player.frame_index == 3
 
     def test_loop_wraps_to_start(self, idle_png: Path):
         player = AnimationPlayer(loop=True)
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         for _ in range(5):
-            player.update(100.0)
+            player.update(0.1)
         assert player.frame_index == 1
         assert not player.finished
 
@@ -119,7 +119,7 @@ class TestAnimationPlayer:
         player = AnimationPlayer(on_finish=lambda: calls.append("done"))
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         for _ in range(10):
-            player.update(100.0)
+            player.update(0.1)
         assert player.finished
         assert player.frame_index == 3
         assert calls == ["done"]
@@ -128,8 +128,8 @@ class TestAnimationPlayer:
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         for _ in range(6):
-            player.update(100.0)
-        player.update(500.0)
+            player.update(0.1)
+        player.update(0.5)
         assert player.frame_index == 3
         assert player.finished
 
@@ -145,15 +145,24 @@ class TestAnimationPlayer:
     def test_same_state_play_does_not_restart(self, idle_png: Path):
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
-        player.update(350.0)
+        player.update(0.35)
         player.play("idle")
         assert player.frame_index == 3
+
+    def test_same_state_play_restart(self, idle_png: Path):
+        player = AnimationPlayer()
+        player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
+        player.update(10.0)
+        assert player.finished
+        player.play("idle", restart=True)
+        assert not player.finished
+        assert player.frame_index == 0
 
     def test_switch_clears_finished(self, idle_png: Path, run_png: Path):
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         for _ in range(6):
-            player.update(100.0)
+            player.update(0.1)
         assert player.finished
         player.play("run", AnimationSheet(run_png, 2, 3))
         assert not player.finished
@@ -163,31 +172,31 @@ class TestAnimationPlayer:
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         player.pause()
-        player.update(100.0)
+        player.update(0.1)
         assert player.frame_index == 0
         player.resume()
-        player.update(100.0)
+        player.update(0.1)
         assert player.frame_index == 1
         assert not player.paused
 
     def test_stop_resets_and_pauses(self, idle_png: Path):
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
-        player.update(150.0)
+        player.update(0.15)
         player.stop()
         assert player.paused and player.frame_index == 0
-        player.update(100.0)
+        player.update(0.1)
         assert player.frame_index == 0
 
     def test_reset_clears_pause_and_finished(self, idle_png: Path):
         player = AnimationPlayer()
         player.play("idle", AnimationSheet(idle_png, 1, 4), fps=10)
         for _ in range(6):
-            player.update(100.0)
+            player.update(0.1)
         player.pause()
         player.reset()
         assert not player.paused and not player.finished
-        player.update(100.0)
+        player.update(0.1)
         assert player.frame_index == 1
 
     def test_no_state_image_is_none(self):
@@ -196,5 +205,5 @@ class TestAnimationPlayer:
     def test_default_fps_applies_on_registration(self, idle_png: Path):
         player = AnimationPlayer(fps=4)
         player.play("idle", AnimationSheet(idle_png, 1, 4))
-        player.update(250.0)
+        player.update(0.25)
         assert player.frame_index == 1

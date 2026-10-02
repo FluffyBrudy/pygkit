@@ -9,7 +9,7 @@ import pytest
 import pygkit
 from pygkit import _LAZY_ATTRS
 
-SUBSYSTEMS = ("audio", "animation", "lighting", "transitions", "ui", "inventory")
+SUBSYSTEMS = ("audio", "animation", "lighting", "transitions", "ui", "inventory", "parallax")
 
 CORE_NAMES = (
     "Drawable",

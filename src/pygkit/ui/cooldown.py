@@ -18,6 +18,8 @@ class CooldownOverlay(UIBase):
         disabled_color: tuple[int, int, int, int] = (50, 50, 55, 200),
         **overrides: Unpack[UIOptions],
     ) -> None:
+        if int(size) <= 0:
+            raise ValueError(f"size must be > 0, got {size!r}")
         super().__init__({"width": int(size), "height": int(size), **overrides})
 
         self.timer = timer
@@ -25,24 +27,27 @@ class CooldownOverlay(UIBase):
         self.disabled_color = disabled_color
         self.disabled = False
 
-        content_w = self.box_model["content_width"]
-        content_h = self.box_model["content_height"]
+        content_w = max(0, self.box_model["content_width"])
+        content_h = max(0, self.box_model["content_height"])
 
         r = min(content_w, content_h) / 2
         self.radius = r
         self.scalar: float = 1.0
-        b = overrides.get("border_radius", 0)
-        if b < r:
+        b = self.border["radius"]
+        if r > 0 and b < r:
             self.scalar = (math.sqrt(2 * (r - b) ** 2) + b) / r
 
-        self.overlay_parent = Surface((content_w, content_h), SRCALPHA)
+        self.overlay_parent = Surface((max(1, content_w), max(1, content_h)), SRCALPHA)
         self._disabled_surf: Optional[Surface] = None
         self.add_plugin(self._draw_overlay)
         self.add_plugin(self._draw_disabled_overlay)
         if icon is not None:
             scale = content_w / icon.width, content_h / icon.height
-            self.icon = transform.scale_by(icon, scale)
+            self.icon = transform.scale_by(icon.copy(), scale)
             self.add_plugin(self._draw_icon)
+
+    def update(self, dt: float = 0.0) -> None:
+        self.timer.update(dt)
 
     def _draw_icon(self, surface: Surface) -> None:
         icon: Optional[Surface] = getattr(self, "icon", None)
