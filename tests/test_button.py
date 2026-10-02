@@ -86,3 +86,19 @@ def test_set_text_rebuilds(font):
     _render(btn, (0, 0))
     assert btn._label is not None
     assert w_before > 0
+
+
+def test_padding_overrides_apply(font):
+    plain = Button(font, "Go")
+    padded = Button(font, "Go", padding_x=20, padding_y=10)
+    assert padded.size[0] == plain.size[0] + 40
+    assert padded.size[1] == plain.size[1] + 20
+
+
+def test_hitbox_covers_full_box(font):
+    btn = Button(font, "Go", padding_x=20, padding_y=10)
+    _render(btn, (50, 60))
+    w, h = btn.size
+    assert btn.contains((51, 61)) is True
+    assert btn.contains((50 + w - 1, 60 + h - 1)) is True
+    assert btn.contains((49, 60)) is False

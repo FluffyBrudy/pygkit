@@ -36,6 +36,12 @@ def clear_sprite_cache() -> None:
     _cache.clear()
 
 
+def _check_radius(radius: int) -> int:
+    if not isinstance(radius, int) or isinstance(radius, bool) or radius < 1:
+        raise ValueError(f"radius must be an int >= 1, got {radius!r}")
+    return radius
+
+
 def _falloff(n: float, kind: str, exponent: float) -> float:
     """Distance falloff factor for normalized distance ``n`` in [0, 1)."""
     if kind == "exp":
@@ -67,6 +73,7 @@ def glow_sprite(
     The returned surface is shared between callers - do not mutate it.
     Use ``.copy()`` when a light needs per-light alpha or color tweaks.
     """
+    radius = _check_radius(radius)
     key = ("glow", radius, color, falloff, exponent)
     cached = _cache.get(key)
     if cached is not None:
@@ -93,7 +100,8 @@ def glow_sprite(
     return _store(key, surf)
 
 
-def dynamic_glow_sprite(    radius: int,
+def dynamic_glow_sprite(
+    radius: int,
     color: tuple[int, int, int] = (255, 255, 255),
     wind: tuple[float, float] = (0.0, 0.0),
     stretch: float = 1.8,
@@ -120,6 +128,7 @@ def dynamic_glow_sprite(    radius: int,
     ``pygkit.lighting.DynamicLight``): a radius-120 light at ``scale=0.25``
     is a 60 px sprite and regenerates in well under a millisecond.
     """
+    radius = _check_radius(radius)
     size = max(2, radius * 2)
     surf = pygame.Surface((size, size), pygame.SRCALPHA)
     cx = cy = radius
@@ -181,6 +190,7 @@ def spotlight_sprite(
 
     The returned surface is shared between callers - do not mutate it.
     """
+    radius = _check_radius(radius)
     key = (
         "spot",
         radius,

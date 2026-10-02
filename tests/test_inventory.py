@@ -361,6 +361,20 @@ class TestInventory:
         assert stack is not None
         assert stack.quantity == 50
 
+    def test_move_item_partial_stack_reports_success(self):
+        """Test a capped move keeps the remainder and reports success."""
+        inventory = Inventory("player")
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 64}
+
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=60))
+        inventory.set_slot(1, ItemStack(data=item_data, quantity=50))
+
+        success = inventory.move_item(0, 1)
+
+        assert success is True
+        assert inventory.get_slot(1).quantity == 64
+        assert inventory.get_slot(0).quantity == 46
+
     def test_move_item_swap(self):
         """Test swapping items between slots."""
         config: InventoryConfig = {"allow_stack_swap": True}
@@ -403,6 +417,30 @@ class TestInventory:
         new_stack = inventory.split_stack(slot_index, quantity=1)
 
         assert new_stack is None
+
+    def test_split_stack_to_target_slot(self):
+        """Test splitting directly into the slot under the cursor."""
+        inventory = Inventory("player")
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 64}
+
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=20))
+
+        new_stack = inventory.split_stack(0, quantity=8, target_slot=2)
+
+        assert new_stack is not None
+        assert inventory.get_slot(2) is new_stack
+        assert inventory.get_slot(0).quantity == 12
+
+    def test_split_stack_to_occupied_target_fails(self):
+        """Test splitting into a non-empty slot is rejected."""
+        inventory = Inventory("player")
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 64}
+
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=20))
+        inventory.set_slot(2, ItemStack(data=item_data, quantity=5))
+
+        assert inventory.split_stack(0, quantity=8, target_slot=2) is None
+        assert inventory.get_slot(0).quantity == 20
 
     def test_find_item(self):
         """Test finding items by ID."""
@@ -728,3 +766,141 @@ class TestDefaultConfig:
         assert DEFAULT_INVENTORY_CONFIG["rows"] == 4
         assert DEFAULT_INVENTORY_CONFIG["cols"] == 6
         assert DEFAULT_INVENTORY_CONFIG["auto_stack"] is True
+
+
+class TestInventoryWidgetDrops:
+    """Widget drop paths must conserve total quantity."""
+
+    def _widget_with(self, qty_a, qty_b):
+        from pygkit.inventory.ui import InventoryWidget
+
+        inventory = Inventory("player", {"rows": 1, "cols": 4})
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 10}
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=qty_a))
+        inventory.set_slot(1, ItemStack(data=item_data, quantity=qty_b))
+        widget = InventoryWidget(inventory)
+        return inventory, widget
+
+    def _drag(self, widget, inventory, slot, split):
+        stack = inventory.get_slot(slot)
+        widget._drag_state.start_drag(
+            stack,
+            slot,
+            inventory.inventory_id,
+            (0, 0),
+            widget.get_slot_rect(slot),
+            split=split,
+        )
+
+    def test_partial_drop_conserves_quantity(self):
+        inventory, widget = self._widget_with(10, 7)
+        self._drag(widget, inventory, 0, split=False)
+        widget._drag_state.dragged_stack = inventory.get_slot(0).copy()
+        assert widget._attempt_drop(1) is True
+        assert inventory.get_slot(0).quantity + inventory.get_slot(1).quantity == 17
+
+    def test_split_drop_conserves_quantity(self):
+        inventory, widget = self._widget_with(10, 5)
+        self._drag(widget, inventory, 0, split=True)
+        assert widget._attempt_drop(1) is True
+        assert inventory.get_slot(0).quantity + inventory.get_slot(1).quantity == 15
+
+    def test_split_drop_to_empty_uses_cursor_slot(self):
+        from pygkit.inventory.ui import InventoryWidget
+
+        inventory = Inventory("player", {"rows": 1, "cols": 4})
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 10}
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=10))
+        widget = InventoryWidget(inventory)
+        stack = inventory.get_slot(0)
+        widget._drag_state.start_drag(
+            stack,
+            0,
+            inventory.inventory_id,
+            (0, 0),
+            widget.get_slot_rect(0),
+            split=True,
+        )
+        assert widget._attempt_drop(3) is True
+        assert inventory.get_slot(3) is not None
+        assert inventory.get_slot(3).quantity == 5
+        assert inventory.get_slot(0).quantity == 5
+
+
+class TestWidgetVisibilityResetsInteraction:
+    def _widget_with_drag(self, hidden_via="toggle"):
+        from pygkit.inventory.ui import InventoryManager, InventoryWidget
+
+        inventory = Inventory("player", {"rows": 1, "cols": 4})
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 10}
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=10))
+        widget = InventoryWidget(inventory)
+        stack = inventory.get_slot(0)
+        widget._drag_state.start_drag(
+            stack,
+            0,
+            inventory.inventory_id,
+            (0, 0),
+            widget.get_slot_rect(0),
+            split=False,
+        )
+        widget._hovered_slot = 0
+        return inventory, widget
+
+    def test_hide_clears_drag_and_hover(self):
+        _, widget = self._widget_with_drag()
+        widget.toggle_visibility()
+        assert widget.visible is False
+        assert widget._drag_state.is_dragging is False
+        assert widget._hovered_slot is None
+
+    def test_show_keeps_clean_state(self):
+        _, widget = self._widget_with_drag()
+        widget.toggle_visibility()
+        widget.toggle_visibility()
+        assert widget.visible is True
+        assert widget._drag_state.is_dragging is False
+
+    def test_manager_close_clears_drag(self):
+        from pygkit.inventory.ui import InventoryManager
+
+        inventory, widget = self._widget_with_drag()
+        mgr = InventoryManager()
+        mgr.register_inventory(inventory, widget)
+        mgr.open_inventory("player")
+        mgr.close_inventory("player")
+        assert widget._drag_state.is_dragging is False
+        assert widget._hovered_slot is None
+
+    def test_manager_close_all_clears_drag(self):
+        from pygkit.inventory.ui import InventoryManager
+
+        inventory, widget = self._widget_with_drag()
+        mgr = InventoryManager()
+        mgr.register_inventory(inventory, widget)
+        mgr.open_inventory("player")
+        mgr.close_all()
+        assert widget._drag_state.is_dragging is False
+
+    def test_partial_drop_emits_item_moved(self):
+        from pygkit.inventory.ui import InventoryWidget
+
+        inventory = Inventory("player", {"rows": 1, "cols": 4})
+        item_data: ItemData = {"id": "arrow", "name": "Arrow", "stack_size": 10}
+        inventory.set_slot(0, ItemStack(data=item_data, quantity=10))
+        inventory.set_slot(1, ItemStack(data=item_data, quantity=7))
+        events = []
+        inventory.add_listener(events.append)
+        widget = InventoryWidget(inventory)
+        stack = inventory.get_slot(0)
+        widget._drag_state.start_drag(
+            stack,
+            0,
+            inventory.inventory_id,
+            (0, 0),
+            widget.get_slot_rect(0),
+            split=False,
+        )
+        widget._drag_state.dragged_stack = stack.copy()
+        assert widget._attempt_drop(1) is True
+        assert "item_moved" in [e.event_type for e in events]

@@ -1,3 +1,5 @@
+import pytest
+
 from pygkit.signals import Signal, SignalBus, signal
 
 
@@ -93,7 +95,7 @@ class TestSignal:
         sig.emit()
         assert results == ["ok"]
 
-    def test_weak_ref_allows_gc(self):
+    def test_plain_function_called(self):
         sig = Signal("test")
         results = []
         def cb():
@@ -101,6 +103,20 @@ class TestSignal:
         sig.connect(cb)
         sig.emit()
         assert results == ["called"]
+
+    def test_bound_method_disconnect(self):
+        sig = Signal("test")
+        results = []
+
+        class Owner:
+            def cb(self):
+                results.append("called")
+
+        owner = Owner()
+        sig.connect(owner.cb)
+        sig.disconnect(owner.cb)
+        sig.emit()
+        assert results == []
 
 
 class TestSignalBus:
@@ -192,14 +208,14 @@ class TestSignalDescriptor:
         obj.sig()
         assert results == ["called"]
 
-    def test_descriptor_assign_allows_override(self):
+    def test_descriptor_assign_raises(self):
         class Obj:
             sig = signal()
 
         obj = Obj()
-        sig = obj.sig
-        obj.sig = "nope"
-        assert obj.sig == "nope"
+        assert isinstance(obj.sig, Signal)
+        with pytest.raises(AttributeError):
+            obj.sig = "nope"
 
     def test_descriptor_multiple_signals(self):
         class Obj:

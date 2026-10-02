@@ -34,6 +34,7 @@ from .utils import (
 _LAZY_ATTRS: dict[str, str] = {
     "SoundManager": "audio",
     "SFX_CHANNELS": "audio",
+    "DEFAULT_SFX_CHANNELS": "audio",
     "AnimationPlayer": "animation",
     "AnimationSheet": "animation",
     "PackOptions": "animation",
@@ -111,6 +112,7 @@ _LAZY_ATTRS: dict[str, str] = {
 __all__ = [
     "SoundManager",
     "SFX_CHANNELS",
+    "DEFAULT_SFX_CHANNELS",
     "AnimationPlayer",
     "AnimationSheet",
     "PackOptions",

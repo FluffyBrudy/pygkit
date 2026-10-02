@@ -26,7 +26,7 @@ def ease_in_out(t: float) -> float:
 class SimpleInterpolation:
     __slots__ = ("current", "target", "speed")
 
-    def __init__(self, value: float = 1.0, speed: float = 0.1) -> None:
+    def __init__(self, value: float = 1.0, speed: float = 6.0) -> None:
         self.current = value
         self.target = value
         self.speed = speed
@@ -34,12 +34,12 @@ class SimpleInterpolation:
     def set(self, target: float) -> None:
         self.target = max(0, min(target, 1.0))
 
-    def update(self) -> None:
+    def update(self, dt: float = 0.0) -> None:
         diff = self.target - self.current
         if abs(diff) < 0.001:
             self.current = self.target
         else:
-            self.current += diff * self.speed
+            self.current += diff * min(1.0, self.speed * max(0.0, dt))
 
     def finished(self) -> bool:
         return abs(self.current - self.target) < 0.001

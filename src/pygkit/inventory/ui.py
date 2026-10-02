@@ -7,7 +7,6 @@ drag-and-drop support, tooltips, and visual feedback.
 
 from __future__ import annotations
 
-import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import pygame
@@ -181,7 +180,7 @@ class DragDropState:
 
         if split and stack.quantity > 1:
             half_qty = (stack.quantity + 1) // 2
-            self.dragged_stack = ItemStack(data=stack.data, quantity=half_qty)
+            self.dragged_stack = ItemStack(data=dict(stack.data), quantity=half_qty)
         else:
             self.dragged_stack = stack.copy()
 
@@ -238,6 +237,7 @@ class InventoryWidget:
         self.inventory = inventory
         self.position = position
         self.config = {**DEFAULT_INVENTORY_CONFIG, **(config or {})}
+        self.visible = True
 
         self.rows = inventory.rows
         self.cols = inventory.cols
@@ -328,6 +328,8 @@ class InventoryWidget:
 
     def handle_events(self, events: List[pygame.event.Event]) -> None:
         """Process pygame events for inventory interaction."""
+        if not self.visible:
+            return
         mouse_pos = pygame.mouse.get_pos()
 
         for event in events:
@@ -438,12 +440,8 @@ class InventoryWidget:
             if self._drag_state.split_mode:
                 to_move = min(dragged_stack.quantity, space)
                 if to_move > 0:
-                    target_stack.add_quantity(to_move)
+                    self.inventory.move_item(source_slot, target_slot, to_move)
                     dragged_stack.remove_quantity(to_move)
-
-                    if dragged_stack.quantity <= 0:
-                        self.inventory.remove_from_slot(source_slot)
-
                     return True
             else:
                 to_move = min(dragged_stack.quantity, space)
@@ -452,14 +450,13 @@ class InventoryWidget:
                         self.inventory.move_item(source_slot, target_slot)
                         return True
                     else:
-                        target_stack.add_quantity(to_move)
+                        self.inventory.move_item(source_slot, target_slot, to_move)
                         dragged_stack.remove_quantity(to_move)
-                        self.inventory.remove_from_slot(source_slot, dragged_stack.quantity)
                         return True
 
         elif target_stack is None:
             if self._drag_state.split_mode:
-                new_stack = self.inventory.split_stack(source_slot, dragged_stack.quantity)
+                new_stack = self.inventory.split_stack(source_slot, dragged_stack.quantity, target_slot)
                 return new_stack is not None
             else:
                 return self.inventory.move_item(source_slot, target_slot)
@@ -469,8 +466,10 @@ class InventoryWidget:
 
         return False
 
-    def update(self, dt: float) -> None:
+    def update(self, dt: float = 0.0) -> None:
         """Update inventory state (tooltip timing, etc.)."""
+        if not self.visible:
+            return
         if self._hovered_slot is not None and not self._drag_state.is_dragging:
             stack = self.inventory.get_slot(self._hovered_slot)
             if stack:
@@ -488,6 +487,8 @@ class InventoryWidget:
 
     def render(self, screen: Surface) -> None:
         """Render the inventory UI to the screen."""
+        if not self.visible:
+            return
 
         bg_color = self.config.get("background_color", (40, 40, 45, 230))
         border_color = self.config.get("border_color", (100, 100, 110, 255))
@@ -604,9 +605,16 @@ class InventoryWidget:
         """Move the inventory widget to a new position."""
         self.position = pos
 
+    def _reset_interaction_state(self) -> None:
+        self._drag_state.end_drag()
+        self._hovered_slot = None
+        self._tooltip.hide()
+        self._tooltip_timer = 0.0
+
     def toggle_visibility(self) -> None:
-        """Toggle inventory visibility (to be handled by parent manager)."""
-        pass
+        self.visible = not self.visible
+        if not self.visible:
+            self._reset_interaction_state()
 
 
 class InventoryManager:
@@ -646,12 +654,17 @@ class InventoryManager:
         """Close/hide an inventory."""
         if inventory_id in self._active_inventories:
             self._active_inventories.remove(inventory_id)
+        widget = self._inventories.get(inventory_id)
+        if widget is not None:
+            widget._reset_interaction_state()
 
         if not self._active_inventories:
             self._visible = False
 
     def close_all(self) -> None:
         """Close all open inventories."""
+        for widget in self._inventories.values():
+            widget._reset_interaction_state()
         self._active_inventories.clear()
         self._visible = False
 
@@ -675,7 +688,7 @@ class InventoryManager:
             if inv_id in self._inventories:
                 self._inventories[inv_id].handle_events(events)
 
-    def update(self, dt: float) -> None:
+    def update(self, dt: float = 0.0) -> None:
         """Update all active inventories."""
         if not self._visible:
             return

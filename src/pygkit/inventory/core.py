@@ -334,7 +334,7 @@ class Inventory:
             )
         else:
             stack.remove_quantity(quantity)
-            removed_stack = ItemStack(data=stack.data, quantity=quantity)
+            removed_stack = ItemStack(data=dict(stack.data), quantity=quantity)
             self._emit_event(
                 InventoryEvent(
                     event_type="item_removed",
@@ -410,7 +410,7 @@ class Inventory:
                 )
 
                 self._update_weight()
-                return source_stack.is_empty()
+                return True
 
             return False
 
@@ -462,6 +462,7 @@ class Inventory:
         self,
         slot_index: int,
         quantity: int,
+        target_slot: Optional[int] = None,
     ) -> Optional[ItemStack]:
         """
         Split a stack, moving part to an empty slot.
@@ -469,6 +470,8 @@ class Inventory:
         Args:
             slot_index: Slot containing the stack to split
             quantity: Amount to move to new slot
+            target_slot: Preferred destination (must be empty); falls back
+                to the first empty slot when None
 
         Returns:
             The new stack created, or None if split failed
@@ -483,12 +486,19 @@ class Inventory:
         if quantity <= 0 or quantity >= source_stack.quantity:
             return None
 
-        empty_slot = self.find_empty_slot()
-        if empty_slot == -1:
-            return None
+        if target_slot is not None:
+            if not 0 <= target_slot < self.total_slots:
+                return None
+            if target_slot == slot_index or self._slots[target_slot] is not None:
+                return None
+            empty_slot = target_slot
+        else:
+            empty_slot = self.find_empty_slot()
+            if empty_slot == -1:
+                return None
 
         new_stack = ItemStack(
-            data=source_stack.data,
+            data=dict(source_stack.data),
             quantity=quantity,
         )
         source_stack.remove_quantity(quantity)
