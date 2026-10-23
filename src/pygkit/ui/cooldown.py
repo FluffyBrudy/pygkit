@@ -39,15 +39,41 @@ class CooldownOverlay(UIBase):
 
         self.overlay_parent = Surface((max(1, content_w), max(1, content_h)), SRCALPHA)
         self._disabled_surf: Optional[Surface] = None
+        # Rounded mask matching the content-box background shape, so the
+        # icon, sweep, and disabled layers share one silhouette. Square
+        # when the radius is 0 (no-op, skipped). Built once; the sweep
+        # reuses it per frame with a single blit.
+        content_radius = max(0, b - self.border["width"])
+        if content_radius > 0 and content_w > 0 and content_h > 0:
+            mask = Surface((content_w, content_h), SRCALPHA)
+            mask.fill((0, 0, 0, 0))
+            draw.rect(
+                mask,
+                (255, 255, 255, 255),
+                (0, 0, content_w, content_h),
+                border_radius=content_radius,
+            )
+            self._mask: Optional[Surface] = mask
+        else:
+            self._mask = None
         self.add_plugin(self._draw_overlay)
         self.add_plugin(self._draw_disabled_overlay)
         if icon is not None:
             scale = content_w / icon.width, content_h / icon.height
-            self.icon = transform.scale_by(icon.copy(), scale)
+            scaled = transform.scale_by(icon.copy(), scale)
+            canvas = Surface(scaled.get_size(), SRCALPHA)
+            canvas.blit(scaled, (0, 0))
+            if self._mask is not None:
+                canvas.blit(self._mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            self.icon = canvas
             self.add_plugin(self._draw_icon)
 
     def update(self, dt: float = 0.0) -> None:
-        self.timer.update(dt)
+        # Read-only by design: the overlay never ticks the timer.
+        # The owner of the timer advances it; HUD only reads
+        # ratio()/reached(). Kept so Container.update() propagation
+        # keeps working for mixed children.
+        _ = dt
 
     def _draw_icon(self, surface: Surface) -> None:
         icon: Optional[Surface] = getattr(self, "icon", None)
@@ -95,6 +121,9 @@ class CooldownOverlay(UIBase):
         if len(points) > 2:
             draw.polygon(op, self.overlay_color, points)
 
+        if self._mask is not None:
+            op.blit(self._mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
         pos = self.box_model["left"], self.box_model["top"]
         surface.blit(op, pos)
 
@@ -108,5 +137,7 @@ class CooldownOverlay(UIBase):
             self._disabled_surf = Surface((w, h), SRCALPHA)
 
         self._disabled_surf.fill(self.disabled_color)
+        if self._mask is not None:
+            self._disabled_surf.blit(self._mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         pos = self.box_model["left"], self.box_model["top"]
         surface.blit(self._disabled_surf, pos)

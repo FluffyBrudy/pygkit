@@ -152,6 +152,9 @@ while running:
     hp_bar.update(dt)
     mana_bar.update(dt)
     exp_bar.update(dt)
+    # Timers are owned here; overlays only read them.
+    dash_timer.update(dt)
+    shield_timer.update(dt)
     dash_cd.update(dt)
     shield_cd.update(dt)
 

@@ -102,3 +102,42 @@ def test_hitbox_covers_full_box(font):
     assert btn.contains((51, 61)) is True
     assert btn.contains((50 + w - 1, 60 + h - 1)) is True
     assert btn.contains((49, 60)) is False
+
+
+def test_gradient_and_shadow_cached(font):
+    btn = Button(font, "Go")
+    screen = pygame.Surface((400, 100))
+    btn.render(screen, (0, 0))
+    assert btn._background is not None
+    assert btn._shadow is not None
+    bg, shadow = btn._background, btn._shadow
+    btn.render(screen, (0, 0))
+    assert btn._background is bg
+    assert btn._shadow is shadow
+    # Gradient spans content size and runs top-to-bottom.
+    w, h = btn.box_model["content_width"], btn.box_model["content_height"]
+    assert bg.get_size() == (max(1, w), max(1, h))
+    assert bg.get_at((w // 2, 0))[:3] != bg.get_at((w // 2, h - 1))[:3]
+
+
+def test_invalidate_clears_cached_layers(font):
+    btn = Button(font, "Go")
+    _render(btn, (0, 0))
+    assert btn._background is not None
+    btn.set_text("Other")
+    assert btn._background is None
+    assert btn._shadow is None
+
+
+def test_flat_style_disables_gradient(font):
+    style = ButtonStyle(gradient_top=None, gradient_bottom=None, shadow_color=None)
+    btn = Button(font, "Go", style=style)
+    _render(btn, (0, 0))
+    assert btn._background is None
+    assert btn._shadow is None
+
+
+def test_explicit_background_uses_flat(font):
+    btn = Button(font, "Go", background=(90, 0, 0, 255))
+    _render(btn, (0, 0))
+    assert btn._background is None

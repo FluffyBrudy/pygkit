@@ -10,7 +10,7 @@ from typing import cast
 
 import pygame
 
-from pygkit.ui import Container, CooldownOverlay, ProgressBarUI
+from pygkit.ui import AnchorLayout, CooldownOverlay, HBox, ProgressBarUI
 from pygkit.utils import Timer
 
 pygame.init()
@@ -39,10 +39,12 @@ ult_timer = Timer(8.0, start_finished=True)
 ult_cd = CooldownOverlay(ult_timer, 48, border_color=(255, 80, 120), border_width=2, border_radius=4)
 
 
-skills = Container()
-skills.add(dash_cd, (20, 80))
-skills.add(shield_cd, (80, 80))
-skills.add(ult_cd, (140, 80))
+skills = HBox(gap=12)
+skills.add(dash_cd)
+skills.add(shield_cd)
+skills.add(ult_cd)
+hud = AnchorLayout(pygame.Rect(0, 0, 640, 400))
+hud.add(skills, anchor="bottomleft", offset=(20, -80))
 
 while running:
     for event in pygame.event.get():
@@ -73,7 +75,11 @@ while running:
     dt = clock.tick(60) / 1000.0
     hp_bar.update(dt)
     mana_bar.update(dt)
-    skills.update(dt)
+    # Timers are owned here; the container's overlays only read them.
+    dash_timer.update(dt)
+    shield_timer.update(dt)
+    ult_timer.update(dt)
+    hud.update(dt)
 
     screen = cast(pygame.Surface, pygame.display.get_surface())
     screen.fill((25, 25, 35))
@@ -82,7 +88,7 @@ while running:
     hp_bar.render(screen, (offset_x, 15))
     mana_bar.render(screen, (offset_x, 42))
 
-    skills.render(screen)
+    hud.render(screen)
 
     y = 150
     for line in [
