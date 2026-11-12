@@ -2,25 +2,6 @@
 
 All notable changes to pygkit are documented here.
 
-## Unreleased
-
-### Features
-
-- `pack_spritesheet` gained a `columns` option (via the `PackOptions`
-  TypedDict, now used with `Unpack` for typed kwargs): for
-  `target="file"` it wraps the flat frame list into rows of at most
-  `columns` frames — `columns=1` stacks frames vertically (one per
-  row), `columns=4` wraps every 4. A short last row is padded with
-  transparent cells so the sheet stays a clean grid readable by
-  `AnimationSheet` with `cols=columns`. The `"animation"` label (when
-  `add_label=True`) attaches after the last row's frames.
-
-### Typing
-
-- `pack_spritesheet(**kwargs)` is now annotated
-  `**kwargs: Unpack[PackOptions]`, so type checkers catch unknown or
-  mistyped pack options instead of passing them through untyped.
-
 ## 2.2.0 (2026-11-12)
 
 ### Breaking changes
@@ -37,6 +18,18 @@ All notable changes to pygkit are documented here.
   instead of an `image=`-only parameter; passing both raises.
 
 ### Features
+
+- `pack_spritesheet` gained a `columns` option (via the `PackOptions`
+  TypedDict, now used with `Unpack` for typed kwargs): for
+  `target="file"` it wraps the flat frame list into rows of at most
+  `columns` frames — `columns=1` stacks frames vertically (one per
+  row), `columns=4` wraps every 4. A short last row is padded with
+  transparent cells so the sheet stays a clean grid readable by
+  `AnimationSheet` with `cols=columns`. The `"animation"` label (when
+  `add_label=True`) attaches after the last row's frames.
+- `pack_spritesheet(**kwargs)` is annotated `**kwargs: Unpack[PackOptions]`,
+  so type checkers catch unknown or mistyped pack options instead of
+  passing them through untyped.
 
 - Added `pygkit.ui.theming`: a data-driven style system. One `UIStyle`
   dict describes a widget's paint (background/foreground color,
