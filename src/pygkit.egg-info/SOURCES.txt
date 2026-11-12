@@ -139,6 +139,7 @@ tests/test_inventory.py
 tests/test_layout.py
 tests/test_lighting.py
 tests/test_menubar.py
+tests/test_pack_spritesheet.py
 tests/test_packaging.py
 tests/test_panel.py
 tests/test_parallax.py

@@ -1,5 +1,8 @@
 pygame-ce>=2.5
 
+[:python_version < "3.11"]
+typing_extensions>=4.6
+
 [all]
 pygkit[animation,audio,inventory,lighting,parallax,transitions,ui]
 

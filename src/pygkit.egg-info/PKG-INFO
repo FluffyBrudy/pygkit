@@ -694,6 +694,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pygame-ce>=2.5
+Requires-Dist: typing_extensions>=4.6; python_version < "3.11"
 Provides-Extra: ui
 Provides-Extra: audio
 Provides-Extra: animation
