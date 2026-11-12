@@ -54,16 +54,41 @@ class AnchorLayout(Container):
 
 
 class _LinearLayout(Container):
-    """Shared flow behavior for horizontal and vertical strips."""
+    """Shared flow behavior for horizontal and vertical strips.
+
+    The box hugs its ink: computed child positions are absorbed relative to
+    the top-left child, so anchoring this layout against a parent rect
+    (``AnchorLayout``, ``Menubar.add``, ...) places the *visible* content,
+    never invisible leading space. Push-down / indents belong to the parent
+    placement — ``anchor=``/``offset=`` at the call site, not ``origin``.
+    """
 
     _axis: str = "row"
 
+    _ALIGNMENTS = ("start", "center", "end")
+
     def __init__(
-        self, origin: tuple[int, int] = (0, 0), gap: int = 0
+        self,
+        origin: tuple[int, int] = (0, 0),
+        gap: int = 0,
+        align: str = "start",
     ) -> None:
+        """``align`` lines children on the cross axis: left/mid for columns
+        and top/mid for rows (``"start"``), mirrored at ``"end"``, with
+        ``"center"`` between. Cross extent is the widest/tallest sibling;
+        the origin seed is kept for back-compat only and is absorbed."""
         super().__init__()
         self.origin = tuple(origin)
         self.gap = gap
+        self.align = str(align)
+        self._check_align(self.align)
+
+    @classmethod
+    def _check_align(cls, align: str) -> None:
+        if align not in cls._ALIGNMENTS:
+            raise ValueError(
+                f"unknown align {align!r}; pick from {list(cls._ALIGNMENTS)}"
+            )
 
     def add(self, child: Widget) -> Widget:
         """Append a child to the flow; placement is managed by this layout."""
@@ -71,19 +96,51 @@ class _LinearLayout(Container):
         return child
 
     def _layout_settings(self) -> object:
-        return (self._axis, self.origin, self.gap)
+        return (self._axis, self.origin, self.gap, self.align)
+
+    def _cross_offsets(self, sizes: list[tuple[int, int]]) -> list[int]:
+        """Cross-axis offsets per child for the active ``align`` mode."""
+        if self._axis == "row":
+            cross = max((max(0, h) for _, h in sizes), default=0)
+            child_cross = [max(0, h) for _, h in sizes]
+        else:
+            cross = max((max(0, w) for w, _ in sizes), default=0)
+            child_cross = [max(0, w) for w, _ in sizes]
+        return [
+            0
+            if self.align == "start" or cross == 0
+            else (cross - value) // 2 if self.align == "center" else cross - value
+            for value in child_cross
+        ]
 
     def _resolve_layout(self) -> None:
+        sizes = [
+            (
+                max(0, self._child_at(index).size[0]),
+                max(0, self._child_at(index).size[1]),
+            )
+            for index in range(self._child_count())
+        ]
+        cross = self._cross_offsets(sizes)
         x, y = self.origin
-        for index in range(self._child_count()):
-            self._set_position(index, (x, y))
-            width, height = self._child_at(index).size
+        raw: list[tuple[int, int]] = []
+        for offset, (width, height) in zip(cross, sizes, strict=True):
             if self._axis == "row":
-                x += max(0, width) + self.gap
+                raw.append((x, y + offset))
+                x += width + self.gap
             else:
-                y += max(0, height) + self.gap
+                raw.append((x + offset, y))
+                y += height + self.gap
+        if raw:
+            min_x = min(x for x, _ in raw)
+            min_y = min(y for _, y in raw)
+            raw = [(x - min_x, y - min_y) for x, y in raw]
+        for index, position in enumerate(raw):
+            self._set_position(index, position)
 
     def set_origin(self, origin: tuple[int, int]) -> None:
+        """Back-compat setter; flow boxes hug their ink, so this no-ops
+        on placement."""
         self.origin = tuple(origin)
         self._layout_dirty = True
 
@@ -91,15 +148,29 @@ class _LinearLayout(Container):
         self.gap = gap
         self._layout_dirty = True
 
+    def set_align(self, align: str) -> None:
+        """Switch cross-axis alignment and invalidate positions."""
+        self._check_align(align)
+        self.align = align
+        self._layout_dirty = True
+
 
 class HBox(_LinearLayout):
-    """Horizontal flow layout with a fixed gap between children."""
+    """Horizontal flow layout with a fixed gap between children.
+
+    ``align``: ``"start"`` = top-aligned, ``"end"`` = bottom-aligned,
+    ``"center"`` = vertically centered on the tallest sibling.
+    """
 
     _axis = "row"
 
 
 class VBox(_LinearLayout):
-    """Vertical flow layout with a fixed gap between children."""
+    """Vertical flow layout with a fixed gap between children.
+
+    ``align``: ``"start"`` = left-aligned, ``"end"`` = right-aligned,
+    ``"center"`` = horizontally centered on the widest sibling.
+    """
 
     _axis = "column"
 

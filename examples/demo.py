@@ -43,9 +43,9 @@ if ASSETS.exists():
     sm.add_sound(ASSETS / "Nextlevel.wav", "next_level", "main")
 
 
-hp_bar = ProgressBarUI(width=300, height=18, fill_color=(200, 60, 60), background=(50, 15, 15))
-mana_bar = ProgressBarUI(width=300, height=12, fill_color=(60, 130, 230), background=(12, 25, 50))
-exp_bar = ProgressBarUI(width=300, height=10, fill_color=(100, 210, 100), background=(15, 40, 15))
+hp_bar = ProgressBarUI(width=300, height=18, style={"fg": (200, 60, 60), "bg": (50, 15, 15)})
+mana_bar = ProgressBarUI(width=300, height=12, style={"fg": (60, 130, 230), "bg": (12, 25, 50)})
+exp_bar = ProgressBarUI(width=300, height=10, style={"fg": (100, 210, 100), "bg": (15, 40, 15)})
 hp_bar.set_progress(0.65)
 mana_bar.set_progress(0.30)
 exp_bar.set_progress(0.0)
@@ -54,11 +54,11 @@ exp_bar.set_progress(0.0)
 dash_timer = Timer(3.0, start_finished=True)
 shield_timer = Timer(5.0, start_finished=True)
 dash_cd = CooldownOverlay(
-    dash_timer, 40, overlay_color=(0, 0, 0, 80), border_color=(80, 200, 255), border_width=2, border_radius=4
+    dash_timer, 40, overlay_color=(0, 0, 0, 80), style={"border": (80, 200, 255), "radius": 4}, border_width=2
 )
 
 shield_cd = CooldownOverlay(
-    shield_timer, 40, overlay_color=(255, 255, 255, 80), border_color=(255, 200, 60), border_width=2, border_radius=4
+    shield_timer, 40, overlay_color=(255, 255, 255, 80), style={"border": (255, 200, 60), "radius": 4}, border_width=2
 )
 
 runner = TransitionRunner(FadeToBlack(), FadeFromBlack())

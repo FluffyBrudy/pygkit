@@ -3,12 +3,56 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
 
 import pygame
 from pygame import Surface
 
 from ..protocols import Widget
+
+
+def dispatch_to_widgets(
+    widgets: Iterable[Widget], event: pygame.event.Event
+) -> bool:
+    """Shared child-dispatch policy for containers and menubars.
+
+    ``widgets`` must arrive topmost-first (last-added child wins). Mouse
+    down/up tries the leaf fast path (``press``/``activate``) per child,
+    then falls back to ``handle_event`` so nested layout containers
+    recurse to their own leaves. Motion routes for hover only, and clears
+    the lower siblings when one child claims the pointer.
+    """
+    if event.type not in (
+        pygame.MOUSEBUTTONDOWN,
+        pygame.MOUSEBUTTONUP,
+        pygame.MOUSEMOTION,
+    ):
+        return False
+    if (
+        event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP)
+        and getattr(event, "button", None) != 1
+    ):
+        return False
+    method_name = None
+    if event.type == pygame.MOUSEBUTTONDOWN:
+        method_name = "press"
+    elif event.type == pygame.MOUSEBUTTONUP:
+        method_name = "activate"
+    entries = list(widgets)
+    for index, widget in enumerate(entries):
+        if method_name is not None:
+            method = getattr(widget, method_name, None)
+            if method is not None and method(event.pos):
+                return True
+        route = getattr(widget, "handle_event", None)
+        if route is not None and route(event):
+            if event.type == pygame.MOUSEMOTION:
+                for lower in entries[index + 1 :]:
+                    clear_hover = getattr(lower, "clear_hover", None)
+                    if clear_hover is not None:
+                        clear_hover()
+            return True
+    return False
 
 
 @dataclass
@@ -143,21 +187,16 @@ class Container:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         self._ensure_layout()
-        if event.type not in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
-            return False
-        if getattr(event, "button", None) != 1:
-            return False
-        method_name = (
-            "press" if event.type == pygame.MOUSEBUTTONDOWN else "activate"
+        return dispatch_to_widgets(
+            (entry.widget for entry in reversed(self._child_records)), event
         )
-        for entry in reversed(self._child_records):
-            method = getattr(entry.widget, method_name, None)
-            if method is not None and method(event.pos):
-                return True
-            route = getattr(entry.widget, "handle_event", None)
-            if route is not None and route(event):
-                return True
-        return False
+
+    def clear_hover(self) -> None:
+        """Clear hover recursively when this group is occluded by a sibling."""
+        for entry in self._child_records:
+            clear_hover = getattr(entry.widget, "clear_hover", None)
+            if clear_hover is not None:
+                clear_hover()
 
     def update(self, dt: float = 0.0) -> None:
         self._ensure_layout()

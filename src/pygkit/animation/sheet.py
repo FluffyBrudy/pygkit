@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import math
 import re
+import sys
 import warnings
 from pathlib import Path
 from typing import Literal, TypedDict, Union
+
+if sys.version_info >= (3, 11):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
 
 import pygame
 from pygame import Rect, Surface
@@ -32,6 +38,7 @@ _MAX_FRAMES = 100
 
 _ALLOWED_PACK_KWARGS = {
     "pattern",
+    "columns",
     "fg",
     "bg",
     "font_name",
@@ -69,7 +76,6 @@ def _natural_key(path: Path, base: Path | None = None) -> list[tuple[int, object
         if part.isdigit():
             key.append((0, int(part)))
         else:
-            # Use lower for case-insensitive; empty string stays (1, "")
             key.append((1, part.lower()))
     return key
 
@@ -78,7 +84,6 @@ def _scale_surface(surface: Surface, scale: float) -> Surface:
     if scale == 1.0:
         return surface
     try:
-        # pygame-ce 2.5+ has scale_by which handles float directly
         return pygame.transform.scale_by(surface, scale)  # type: ignore[attr-defined]
     except (AttributeError, pygame.error, ValueError, TypeError):
         pass
@@ -94,8 +99,6 @@ def _scale_surface(surface: Surface, scale: float) -> Surface:
 
 
 def _label_from_stem(stem: str) -> str:
-    # Capture alphabetic words possibly joined by _- but not trailing _-
-    # e.g. "run_01" -> "run", "idle-anim" -> "idle-anim", "run_" -> "run"
     m = re.search(r"[A-Za-z]+(?:[_-][A-Za-z]+)*", stem)
     if m:
         return m.group(0)
@@ -107,12 +110,12 @@ def _label_from_stem(stem: str) -> str:
 
 class PackOptions(TypedDict, total=False):
     pattern: str | None
+    columns: int | None
     fg: tuple[int, int, int] | tuple[int, int, int, int]
     bg: tuple[int, int, int] | tuple[int, int, int, int]
     font_name: str | None
     font_size: int | None
     padding: int
-    strict: bool
     ignore_bias: bool
     ignore_mismatch: bool
     allow_mismatch: bool
@@ -156,7 +159,6 @@ def _collect_image_files(dir_path: Path, pattern: str | None) -> list[Path]:
         if not found_any_match:
             raise ValueError(f"No files matching pattern {pattern!r} in directory {dir_path!r}")
         if not files:
-            # Pattern matched something but no images (e.g. "*.txt")
             raise ValueError(f"No image files matching pattern {pattern!r} in directory {dir_path!r}")
     files.sort(key=lambda p: (_natural_key(p, dir_path), str(p).lower()))
     return files
@@ -196,7 +198,22 @@ class AnimationSheet:
     ``2.0`` doubles dimensions, ``0.5`` halves them.
     """
 
-    __slots__ = ("_surface", "_rows", "_cols", "_cell_w", "_cell_h", "_cache", "_frames", "_scale", "_orig_cell_w", "_orig_cell_h", "_start_row", "_start_col", "_sheet_rows", "_sheet_cols")
+    __slots__ = (
+        "_surface",
+        "_rows",
+        "_cols",
+        "_cell_w",
+        "_cell_h",
+        "_cache",
+        "_frames",
+        "_scale",
+        "_orig_cell_w",
+        "_orig_cell_h",
+        "_start_row",
+        "_start_col",
+        "_sheet_rows",
+        "_sheet_cols",
+    )
 
     def __init__(
         self,
@@ -214,7 +231,12 @@ class AnimationSheet:
             raise TypeError("rows and cols must be ints")
         if rows < 1 or cols < 1:
             raise ValueError(f"rows and cols must be >= 1, got rows={rows}, cols={cols}")
-        if not isinstance(start_row, int) or not isinstance(start_col, int) or isinstance(start_row, bool) or isinstance(start_col, bool):
+        if (
+            not isinstance(start_row, int)
+            or not isinstance(start_col, int)
+            or isinstance(start_row, bool)
+            or isinstance(start_col, bool)
+        ):
             raise TypeError("start_row and start_col must be ints")
         if start_row < 0 or start_col < 0:
             raise ValueError(f"start_row and start_col must be >= 0, got start_row={start_row}, start_col={start_col}")
@@ -260,8 +282,6 @@ class AnimationSheet:
                 self._cell_w = cell_w
                 self._cell_h = cell_h
             else:
-                # Use scaled surface size for precision, not just round, to avoid 1px drift
-                # Create a dummy scaled cell to get actual size from _scale_surface
                 dummy = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
                 scaled_dummy = _scale_surface(dummy, scale_f)
                 self._cell_w, self._cell_h = scaled_dummy.get_size()
@@ -277,7 +297,9 @@ class AnimationSheet:
 
         if path.is_dir():
             if rows != 1 or cols != 1:
-                raise ValueError(f"rows and cols are ignored in directory mode (got rows={rows}, cols={cols}); use pattern/scale instead")
+                raise ValueError(
+                    f"rows and cols are ignored in directory mode (got rows={rows}, cols={cols}); use pattern/scale instead"
+                )
             if start_row != 0 or start_col != 0 or sheet_rows is not None or sheet_cols is not None:
                 raise ValueError("start_row/start_col/sheet_rows/sheet_cols are ignored in directory mode")
             self._scale = scale_f
@@ -329,7 +351,6 @@ class AnimationSheet:
     def _init_from_directory(self, dir_path: Path, pattern: str | None) -> None:
         files = _collect_image_files(dir_path, pattern)
 
-        # Load surfaces; first frame is source of truth for size.
         loaded: list[Surface] = []
         expected_size: tuple[int, int] | None = None
         scale_f = self._scale
@@ -359,7 +380,6 @@ class AnimationSheet:
         if not loaded:
             raise ValueError(f"No image files found in directory {dir_path!r}")
 
-        # Directory mode is stored as a flat strip: rows=1, cols=N
         self._frames = loaded
         self._surface = loaded[0]
         self._rows = 1
@@ -370,7 +390,6 @@ class AnimationSheet:
         if scale_f == 1.0:
             self._cell_w, self._cell_h = expected_size
         else:
-            # Use actual scaled size to avoid drift
             self._cell_w, self._cell_h = loaded[0].get_size()
         self._cache = {i: s for i, s in enumerate(loaded)}
 
@@ -387,7 +406,17 @@ class AnimationSheet:
         sheet_rows: int | None = None,
         sheet_cols: int | None = None,
     ) -> "AnimationSheet":
-        return cls(path, rows, cols, pattern=pattern, scale=scale, start_row=start_row, start_col=start_col, sheet_rows=sheet_rows, sheet_cols=sheet_cols)
+        return cls(
+            path,
+            rows,
+            cols,
+            pattern=pattern,
+            scale=scale,
+            start_row=start_row,
+            start_col=start_col,
+            sheet_rows=sheet_rows,
+            sheet_cols=sheet_cols,
+        )
 
     @classmethod
     def from_directory(cls, directory: PathLike, pattern: str | None = None, scale: float = 1.0) -> "AnimationSheet":
@@ -462,7 +491,7 @@ def pack_spritesheet(
     render_scale: float = 1.0,
     add_label: bool = False,
     strict: bool = True,
-    **kwargs,
+    **kwargs: Unpack[PackOptions],
 ) -> Surface:
     """Pack a folder into a spritesheet Surface.
 
@@ -474,12 +503,20 @@ def pack_spritesheet(
       becomes a row and its files become columns. Linear files in ``source``
       are ignored.
 
+    ``columns`` (``target="file"`` only) wraps the flat frame list into rows
+    of at most ``columns`` frames: ``columns=1`` stacks frames vertically
+    (one per row), ``columns=4`` wraps every 4 frames. A short last row is
+    padded with transparent cells so the sheet stays a clean grid readable
+    by :class:`AnimationSheet` with ``cols=columns``. ``target="dir"`` must
+    not pass ``columns`` — its rows already map to subdirectories.
+
     Cell size is strictly uniform as the first frame's size; mismatched
     frames raise ``ValueError`` when ``strict`` is ``True``. ``render_scale``
     scales the whole packed surface at the end (whole-surface scaling reduces
     floating-point error vs per-frame scaling). ``add_label`` adds text
-    labels: for ``target="file"`` the fixed label ``"animation"`` is used;
-    for ``target="dir"`` the subdir name's first ``[A-Za-z]+(?:[_-][A-Za-z]+)*``
+    labels: for ``target="file"`` the fixed label ``"animation"`` is placed
+    after the last row's frames (the only row unless ``columns`` wraps); for
+    ``target="dir"`` the subdir name's first ``[A-Za-z]+(?:[_-][A-Za-z]+)*``
     capture is used, falling back to ``[0-9]+`` then stem (trailing ``_-`` are
     stripped).
 
@@ -493,6 +530,8 @@ def pack_spritesheet(
     ``kwargs`` (all optional, ``total=False``):
 
     * ``pattern`` – glob pattern as in :class:`AnimationSheet`
+    * ``columns`` – wrap ``target="file"`` frames into rows of this many
+      frames (``1`` = vertical strip); ``None`` keeps a single row
     * ``fg``/``bg`` – label colors, default white on black (validated as tuple)
     * ``font_name``/``font_size`` – font selection
     * ``padding`` – outer padding in pixels (right/bottom only)
@@ -516,16 +555,22 @@ def pack_spritesheet(
     if not isinstance(strict, bool):
         raise TypeError("strict must be bool")
     if "size" in kwargs:
-        raise TypeError("pack_spritesheet() got unexpected keyword argument 'size' (cell size is now strict first frame)")
+        raise TypeError(
+            "pack_spritesheet() got unexpected keyword argument 'size' (cell size is now strict first frame)"
+        )
+    columns = kwargs.get("columns")
+    if columns is not None:
+        if not isinstance(columns, int) or isinstance(columns, bool):
+            raise TypeError(f"columns must be int, got {columns!r}")
+        if columns < 1:
+            raise ValueError(f"columns must be >=1, got {columns!r}")
     _validate_pack_kwargs(kwargs)
-    # Alias handling for ignore_bias / ignore_mismatch
     if "ignore_bias" in kwargs:
         strict = not bool(kwargs.pop("ignore_bias"))
     if "ignore_mismatch" in kwargs:
         strict = not bool(kwargs.pop("ignore_mismatch"))
     if "allow_mismatch" in kwargs:
         strict = not bool(kwargs.pop("allow_mismatch"))
-    # Validate fg/bg types
     pattern: str | None = kwargs.get("pattern")  # type: ignore[assignment]
     if pattern is not None and not isinstance(pattern, str):
         raise TypeError("pattern must be str or None")
@@ -533,7 +578,6 @@ def pack_spritesheet(
         raise ValueError("pattern must not be empty")
     fg = kwargs.get("fg", (255, 255, 255))
     bg = kwargs.get("bg", (0, 0, 0))
-    # Basic validation for colors
     for name, col in (("fg", fg), ("bg", bg)):
         if not isinstance(col, tuple) or not all(isinstance(v, int) for v in col) or len(col) not in (3, 4):
             raise TypeError(f"{name} must be tuple of 3 or 4 ints")
@@ -555,14 +599,21 @@ def pack_spritesheet(
     if not src.is_dir():
         raise ValueError(f"source {source!r} is not a directory")
 
-    # Determine rows data
-    rows_data: list[tuple[str, list[Path]]] = []
+    rows_data: list[tuple[str, list[Path | None]]] = []
     if target == "file":
         files = _collect_image_files(src, pattern)
         if not files:
             raise ValueError(f"No image files found in directory {src!r}")
-        rows_data.append(("animation", files))
+        if columns is None:
+            rows_data.append(("animation", files))
+        else:
+            for i in range(0, len(files), columns):
+                chunk: list[Path | None] = files[i : i + columns]
+                chunk += [None] * (columns - len(chunk))
+                rows_data.append(("animation", chunk))
     else:
+        if columns is not None:
+            raise ValueError("columns is only valid with target='file' (dir rows already map to subdirectories)")
         subdirs = [d for d in src.iterdir() if d.is_dir()]
         subdirs.sort(key=lambda p: (_natural_key(p, src), str(p).lower()))
         if not subdirs:
@@ -570,15 +621,14 @@ def pack_spritesheet(
         for sub in subdirs:
             files = _collect_image_files(sub, pattern)
             if not files:
-                # skip empty subdirs? raise to be explicit
                 raise ValueError(f"No image files found in subdirectory {sub!r}")
             label = _label_from_stem(sub.name) if add_label else ""
             rows_data.append((label, files))
         if not rows_data:
             raise ValueError(f"No image files found in subdirectories of {src!r}")
 
-    # Determine cell size - strict uniform as first frame (keep surface for reuse)
     first_path = rows_data[0][1][0]
+    assert first_path is not None, "first row must contain at least one frame"
     try:
         tmp_surf = pygame.image.load(str(first_path))
     except (pygame.error, FileNotFoundError, OSError) as e:
@@ -592,15 +642,13 @@ def pack_spritesheet(
     if cell_w < 1 or cell_h < 1:
         raise ValueError(f"Invalid cell size {cell_w}x{cell_h} from {first_path!r}")
 
-    # Validate total frames cap
-    total_frames = sum(len(files) for _, files in rows_data)
+    total_frames = sum(1 for _, files in rows_data for f in files if f is not None)
     if total_frames > _MAX_FRAMES:
         raise ValueError(f"Too many frames total {total_frames}: exceeds {_MAX_FRAMES}")
 
     max_cols = max(len(files) for _, files in rows_data)
     num_rows = len(rows_data)
 
-    # Prepare font and label metrics if needed (single render pass)
     label_cols_needed = 0
     label_surfaces: list[Surface | None] = []
     if add_label:
@@ -618,9 +666,11 @@ def pack_spritesheet(
         except Exception:
             font = pygame.font.SysFont(None, eff_font_size)
 
-        # Render once and compute max cols
-        text_surfs: list[Surface] = []
-        for label, _ in rows_data:
+        text_surfs: list[Surface | None] = []
+        for idx, (label, _) in enumerate(rows_data):
+            if target == "file" and idx != num_rows - 1:
+                text_surfs.append(None)
+                continue
             text = label if label else "animation"
             if target == "file":
                 text = "animation"
@@ -634,9 +684,11 @@ def pack_spritesheet(
             if cols_needed > label_cols_needed:
                 label_cols_needed = cols_needed
 
-        # Build label areas with uniform width
         if label_cols_needed:
             for text_surf in text_surfs:
+                if text_surf is None:
+                    label_surfaces.append(None)
+                    continue
                 area_w = label_cols_needed * cell_w
                 area = pygame.Surface((area_w, cell_h), pygame.SRCALPHA)
                 try:
@@ -658,13 +710,12 @@ def pack_spritesheet(
     packed = pygame.Surface((unscaled_w, unscaled_h), pygame.SRCALPHA)
     packed.fill((0, 0, 0, 0))
 
-    # Keep first surface to avoid double load
     first_surf_cached: Surface | None = tmp_surf
-    # Blit frames - strict uniform size as first frame (or scaled if not strict)
-    for r, (_, files) in enumerate(rows_data):
-        for c, fpath in enumerate(files):
+    for r, (_, row_files) in enumerate(rows_data):
+        for c, fpath in enumerate(row_files):
+            if fpath is None:
+                continue
             if r == 0 and c == 0 and first_surf_cached is not None:
-                # Reuse already loaded first frame (convert handling already done)
                 surf = first_surf_cached
                 first_surf_cached = None
             else:
@@ -685,7 +736,7 @@ def pack_spritesheet(
                         f"got {sw}x{sh} for {fpath.name!r}"
                     )
                 try:
-                    surf = pygame.transform.smoothscale(surf, (cell_w, cell_h))
+                    surf = pygame.transform.scale(surf, (cell_w, cell_h))
                 except pygame.error:
                     surf = pygame.transform.scale(surf, (cell_w, cell_h))
             packed.blit(surf, (c * cell_w, r * cell_h))

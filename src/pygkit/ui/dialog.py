@@ -12,6 +12,7 @@ from pygame.font import Font
 from pygame.typing import ColorLike
 
 from ..ui.base import UIBase, UIOptions
+from ..ui.theming import UIStyle
 from ..utils.text import load_font, wrap
 from ..utils.timer import Timer
 
@@ -121,7 +122,13 @@ class DialogBox(UIBase):
             dialog.render(screen, (x, y))
     """
 
-    def __init__(self, config: Optional[DialogConfig] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[DialogConfig] = None,
+        *,
+        style: UIStyle | None = None,
+        background_image: Surface | None = None,
+    ) -> None:
         """
         Initialize the DialogBox.
 
@@ -135,13 +142,19 @@ class DialogBox(UIBase):
             "height": self.config.height,
             "padding_x": self.config.padding_x,
             "padding_y": self.config.padding_y,
-            "border_radius": self.config.border_radius,
             "border_width": self.config.border_width,
-            "background": self.config.colors.box_background,
-            "border_color": self.config.colors.box_border,
+        }
+        config_style: UIStyle = {
+            "bg": self.config.colors.box_background,
+            "border": self.config.colors.box_border,
+            "radius": self.config.border_radius,
         }
 
-        super().__init__(options)
+        super().__init__(
+            options,
+            style={**config_style, **(style or {})},
+            background_image=background_image,
+        )
 
         self.font = load_font(
             self.config.font_name or "",
@@ -372,6 +385,11 @@ class DialogBox(UIBase):
         if self._needs_rebuild:
             self._rebuild_text_surfaces()
 
+        pos = (
+            self.box_model["offset_x"] + pos_offset[0],
+            self.box_model["offset_y"] + pos_offset[1],
+        )
+        self.draw_shadow(screen, pos)
         self.draw_base()
 
         local_surf = self.local_surface
@@ -407,10 +425,6 @@ class DialogBox(UIBase):
             indicator_y = self._content_rect.bottom - self.config.indicator_size - 5
             self._draw_indicator(local_surf, (indicator_x, indicator_y))
 
-        pos = (
-            self.box_model["offset_x"] + pos_offset[0],
-            self.box_model["offset_y"] + pos_offset[1],
-        )
         screen.blit(local_surf, pos)
 
     @property

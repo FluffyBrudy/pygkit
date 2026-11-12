@@ -132,12 +132,13 @@ class TestAnchorLayout:
 
 class TestHBoxVBox:
     def test_hbox_order(self):
+        # Origin seed is absorbed; relative order and gap are intact.
         bar = HBox(origin=(10, 10), gap=4)
         a, b = Stub(50, 20), Stub(30, 20)
         bar.add(a)
         bar.add(b)
-        assert bar.children[0][1] == (10, 10)
-        assert bar.children[1][1] == (64, 10)
+        assert bar.children[0][1] == (0, 0)
+        assert bar.children[1][1] == (54, 0)
 
     def test_vbox_order(self):
         col = VBox(origin=(0, 0), gap=5)
@@ -151,10 +152,8 @@ class TestHBoxVBox:
         bar = HBox(origin=(0, 0), gap=0)
         bar.add(Stub(10, 10))
         bar.add(Stub(10, 10))
-        bar.set_origin((5, 5))
-        assert bar.children[0][1] == (5, 5)
         bar.set_gap(10)
-        assert bar.children[1][1] == (25, 5)
+        assert bar.children[1][1] == (20, 0)
 
     def test_relayout_after_resize(self):
         bar = HBox(gap=4)
@@ -186,13 +185,15 @@ class TestHBoxVBox:
             bar.add(Stub(10, 10), pos=(5, 5))
 
     def test_click_routing(self, font):
-        bar = HBox(origin=(16, 16), gap=8)
+        # Origin is absorbed (box hugs ink); push-down/indent is the
+        # placement offset at the parent, exercised in test_anchored_flow.
+        bar = HBox(gap=8)
         hits = []
         btn = Button(font, "Go")
         btn.on_press.connect(lambda b: hits.append(True))
         bar.add(btn)
         screen = pygame.Surface((400, 200))
-        bar.render(screen, (0, 0))
+        bar.render(screen, (16, 16))
         w, h = btn.size
         pos = (16 + w // 2, 16 + h // 2)
         assert bar.handle_event(_down(pos)) is True
@@ -329,3 +330,115 @@ def test_content_size_ignores_negative_overflow():
     box.add(Stub(20, 10), pos=(-8, -4))
     box.add(Stub(12, 5), pos=(6, 3))
     assert box.size == (18, 8)
+
+
+class TestInkTightFlows:
+    """Flow boxes hug their ink: no dead band from the origin seed."""
+
+    def test_origin_absorbed_from_size_and_positions(self):
+        bar = VBox(origin=(0, 120), gap=8)
+        top = Stub(100, 30)
+        bottom = Stub(100, 30)
+        bar.add(top)
+        bar.add(bottom)
+        # Old behavior reported height >= 120 + ink; the box now hugs ink.
+        assert bar.size == (100, 68)
+        assert bar.children[0][1] == (0, 0)
+        assert bar.children[1][1] == (0, 38)
+
+    def test_anchored_flow_places_visible_content(self):
+        bar = VBox(origin=(0, 120))
+        bar.add(Stub(100, 30))
+        parent = AnchorLayout(pygame.Rect(0, 0, 400, 300))
+        parent.add(bar, anchor="center")
+        # The anchor point hits the ink, not box + dead band.
+        assert parent.children[0][1] == (150, 135)
+
+        # Push-down lives in the parent offset now.
+        bar2 = VBox(origin=(0, 120), gap=8)
+        bar2.add(Stub(100, 30))
+        parent2 = AnchorLayout(pygame.Rect(0, 0, 400, 300))
+        parent2.add(bar2, anchor="center", offset=(0, 120))
+        first = parent2.children[0][1]
+        assert first == (150, 135 + 120)
+
+    def test_set_origin_keeps_ink_tight(self):
+        bar = VBox()
+        bar.add(Stub(50, 20))
+        bar.set_origin((3, 9))
+        assert bar.size == (50, 20)
+        assert bar.children[0][1] == (0, 0)
+
+    def test_row_origin_absorbed_horizontally(self):
+        bar = HBox(origin=(16, 0))
+        bar.add(Stub(30, 10))
+        assert bar.children[0][1] == (0, 0)
+        assert bar.size == (30, 10)
+
+
+class TestFlowAlign:
+    def test_bad_align(self):
+        with pytest.raises(ValueError, match="unknown align"):
+            VBox(align="everywhere")
+
+    def test_set_align(self):
+        bar = VBox()
+        bar.set_align("center")
+        assert bar.align == "center"
+
+    def test_bad_set_align(self):
+        bar = VBox()
+        with pytest.raises(ValueError, match="unknown align"):
+            bar.set_align("sideways")
+
+    def test_vbox_center_uses_widest_sibling(self):
+        bar = VBox(gap=4, align="center")
+        wide = Stub(100, 10)
+        narrow = Stub(40, 10)
+        bar.add(wide)
+        bar.add(narrow)
+        assert bar.children[0][1] == (0, 0)
+        assert bar.children[1][1] == ((100 - 40) // 2, 14)
+        assert bar.size == (100, 24)
+
+    def test_vbox_end(self):
+        bar = VBox(gap=4, align="end")
+        wide = Stub(100, 10)
+        narrow = Stub(40, 10)
+        bar.add(wide)
+        bar.add(narrow)
+        assert bar.children[1][1] == (60, 14)
+
+    def test_hbox_center_uses_tallest_sibling(self):
+        bar = HBox(gap=4, align="center")
+        tall = Stub(10, 50)
+        short = Stub(10, 20)
+        bar.add(tall)
+        bar.add(short)
+        assert bar.children[0][1] == (0, 0)
+        assert bar.children[1][1] == (14, (50 - 20) // 2)
+        assert bar.size == (24, 50)
+
+    def test_hbox_end(self):
+        bar = HBox(gap=4, align="end")
+        bar.add(Stub(10, 50))
+        bar.add(Stub(10, 20))
+        assert bar.children[1][1] == (14, 30)
+
+    def test_align_change_recomputes(self):
+        bar = VBox(gap=4, align="center")
+        bar.add(Stub(100, 10))
+        bar.add(Stub(40, 10))
+        assert bar.children[1][1] == (30, 14)
+        bar.set_align("start")
+        assert bar.children[1][1] == (0, 14)
+
+    def test_align_survives_child_resize(self):
+        bar = VBox(gap=4, align="center")
+        wide = Stub(100, 10)
+        narrow = Stub(40, 10)
+        bar.add(wide)
+        bar.add(narrow)
+        wide._size = (80, 10)
+        # Widest sibling shrank to 80; narrow child re-centers now (40).
+        assert bar.children[1][1] == ((80 - 40) // 2, 14)

@@ -1,6 +1,9 @@
 """
 Menubar demo — bar with text and image buttons, bool event dispatch.
 
+Direct buttons and nested layout containers (a centered VBox menu)
+both route mouse events; clicks inside the VBox fire their leaf buttons.
+
 Needs: pygkit[ui]
 
 Controls:
@@ -14,9 +17,9 @@ import argparse
 
 import pygame
 
-from pygkit.ui import Button, Menubar
+from pygkit.ui import Button, Menubar, VBox
 
-W, H = 640, 160
+W, H = 640, 280
 
 
 def main() -> None:
@@ -36,16 +39,25 @@ def main() -> None:
     pygame.draw.rect(img, (200, 220, 255, 255), img.get_rect(), 2, border_radius=6)
 
     fired: list[str] = []
-    bar = Menubar(width=600, height=56)
+    bar = Menubar(width=600, height=240)
     start = Button(font, "start", image=img)
     start.on_press.connect(lambda btn: fired.append("start"))
     settings = Button(font, "settings")
     settings.on_press.connect(lambda btn: fired.append("settings"))
     locked = Button(font, "locked", enabled=False)
     locked.on_press.connect(lambda btn: fired.append("locked-never"))
-    bar.add(start, anchor="midleft", dx=12)
-    bar.add(settings, anchor="center")
-    bar.add(locked, anchor="midright", dx=-12)
+    bar.add(start, anchor="midtop", dy=14, dx=-140)
+    bar.add(settings, anchor="midtop", dy=14)
+    bar.add(locked, anchor="midtop", dy=14, dx=140)
+
+    # Layout children route too: buttons inside a VBox fire like direct
+    # children (same shared dispatch policy, no user-side overrides).
+    menu = VBox(gap=8, align="center")
+    for label in ("one", "two"):
+        item = Button(font, label)
+        item.on_press.connect(lambda btn, name=label: fired.append(name))
+        menu.add(item)
+    bar.add(menu, anchor="midtop", dy=90)
 
     count = 0
     running = True
@@ -64,7 +76,7 @@ def main() -> None:
         bar.render(screen, (20, 20))
         last = fired[-1] if fired else "-"
         screen.blit(small.render(f"last fired: {last}   (click empty space: nothing fires)",
-                                 True, (160, 160, 180)), (20, 100))
+                                 True, (160, 160, 180)), (20, 258))
         pygame.display.flip()
         count += 1
         if args.frames and count >= args.frames:
