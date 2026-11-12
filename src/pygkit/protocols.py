@@ -38,8 +38,6 @@ class Widget(Renderable, Protocol):
 
 
 class Clickable(Widget, Protocol):
-    # contains/press/activate take screen coords; widgets track origin at render.
-
     on_press: Signal[Any]
 
     def contains(self, pos: tuple[int, int]) -> bool: ...

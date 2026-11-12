@@ -596,8 +596,6 @@ class DynamicLight:
             phase,
         )
         self._bake_scale = lightmap.scale
-        # never share the generator cache: per-light alpha and wobble
-        # changes must not leak across lights
         return sprite.copy()
 
     def sprite(self, lightmap: LightMap | None = None) -> Surface:

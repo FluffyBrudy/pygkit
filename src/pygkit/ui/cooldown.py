@@ -2,13 +2,20 @@ import math
 from typing import List, Optional, Tuple, Unpack
 
 import pygame
-from pygame import SRCALPHA, Surface, draw, transform
+from pygame import SRCALPHA, Surface, draw
 
 from ..utils.timer import Timer
 from .base import UIBase, UIOptions
+from .theming import UIStyle
 
 
 class CooldownOverlay(UIBase):
+    """Cooldown sweep over optional, shape-clipped icon/background art.
+
+    ``icon=`` remains the concise HUD API; it is rendered through
+    :class:`UIBase` as ``background_image`` and therefore uses the same
+    content rectangle and ``style.radius`` clipping as the sweep.
+    """
     def __init__(
         self,
         timer: Timer,
@@ -16,34 +23,50 @@ class CooldownOverlay(UIBase):
         icon: Optional[Surface] = None,
         overlay_color: tuple[int, int, int, int] = (0, 0, 0, 255),
         disabled_color: tuple[int, int, int, int] = (50, 50, 55, 200),
+        style: UIStyle | None = None,
+        background_image: Surface | None = None,
         **overrides: Unpack[UIOptions],
     ) -> None:
         if int(size) <= 0:
             raise ValueError(f"size must be > 0, got {size!r}")
-        super().__init__({"width": int(size), "height": int(size), **overrides})
+        if icon is not None and background_image is not None:
+            raise ValueError("pass either icon or background_image, not both")
+        super().__init__(
+            {"width": int(size), "height": int(size), **overrides},
+            style=style,
+            background_image=background_image if background_image is not None else icon,
+        )
 
         self.timer = timer
         self.overlay_color = overlay_color
         self.disabled_color = disabled_color
         self.disabled = False
 
+        self.overlay_parent = Surface((1, 1), SRCALPHA)
+        self._disabled_surf: Optional[Surface] = None
+        self._refresh_clip_geometry()
+        self.add_plugin(self._draw_overlay)
+        self.add_plugin(self._draw_disabled_overlay)
+
+    def set_style(self, style: UIStyle) -> None:
+        """Replace chrome and rebuild the matching sweep/disabled clip."""
+        super().set_style(style)
+        self._refresh_clip_geometry()
+
+    def _refresh_clip_geometry(self) -> None:
+        """Rebuild layers derived from content geometry and style radius."""
         content_w = max(0, self.box_model["content_width"])
         content_h = max(0, self.box_model["content_height"])
-
         r = min(content_w, content_h) / 2
         self.radius = r
-        self.scalar: float = 1.0
-        b = self.border["radius"]
-        if r > 0 and b < r:
-            self.scalar = (math.sqrt(2 * (r - b) ** 2) + b) / r
+        self.scalar = 1.0
+        style_radius = self._resolved_style().radius
+        if r > 0 and style_radius < r:
+            self.scalar = (math.sqrt(2 * (r - style_radius) ** 2) + style_radius) / r
 
         self.overlay_parent = Surface((max(1, content_w), max(1, content_h)), SRCALPHA)
-        self._disabled_surf: Optional[Surface] = None
-        # Rounded mask matching the content-box background shape, so the
-        # icon, sweep, and disabled layers share one silhouette. Square
-        # when the radius is 0 (no-op, skipped). Built once; the sweep
-        # reuses it per frame with a single blit.
-        content_radius = max(0, b - self.border["width"])
+        self._disabled_surf = None
+        content_radius = max(0, style_radius - self.border_width)
         if content_radius > 0 and content_w > 0 and content_h > 0:
             mask = Surface((content_w, content_h), SRCALPHA)
             mask.fill((0, 0, 0, 0))
@@ -56,47 +79,9 @@ class CooldownOverlay(UIBase):
             self._mask: Optional[Surface] = mask
         else:
             self._mask = None
-        self.add_plugin(self._draw_overlay)
-        self.add_plugin(self._draw_disabled_overlay)
-        if icon is not None:
-            scale = content_w / icon.width, content_h / icon.height
-            scaled = transform.scale_by(icon.copy(), scale)
-            canvas = Surface(scaled.get_size(), SRCALPHA)
-            canvas.blit(scaled, (0, 0))
-            if self._mask is not None:
-                canvas.blit(self._mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            self.icon = canvas
-            self.add_plugin(self._draw_icon)
 
     def update(self, dt: float = 0.0) -> None:
-        # Read-only by design: the overlay never ticks the timer.
-        # The owner of the timer advances it; HUD only reads
-        # ratio()/reached(). Kept so Container.update() propagation
-        # keeps working for mixed children.
         _ = dt
-
-    def _draw_icon(self, surface: Surface) -> None:
-        icon: Optional[Surface] = getattr(self, "icon", None)
-        if icon is None:
-            return
-
-        center_x = self.box_model["content_width"] // 2
-        center_y = self.box_model["content_height"] // 2
-
-        rect = icon.get_rect(
-            center=(
-                self.box_model["left"] + center_x,
-                self.box_model["top"] + center_y,
-            )
-        )
-
-        if self.disabled:
-            icon.set_alpha(80)
-        elif not self.timer.reached():
-            icon.set_alpha(150)
-        elif icon.get_alpha() != 255:
-            icon.set_alpha(255)
-        surface.blit(icon, rect.topleft)
 
     def _draw_overlay(self, surface: Surface) -> None:
         if self.disabled or self.timer.reached():

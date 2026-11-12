@@ -1,217 +1,273 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Unpack
 
 import pygame
 from pygame import SRCALPHA, Surface
 from pygame.font import Font
-from pygame.typing import ColorLike
+from pygame.mask import Mask
 
 from ..signals import Signal
-from .base import UIBase, UIOptions
-
-
-@dataclass
-class ButtonStyle:
-    text_color: ColorLike = (255, 255, 255, 255)
-    hover_tint: ColorLike | None = (255, 255, 255, 36)
-    pressed_tint: ColorLike | None = (0, 0, 0, 70)
-    disabled_tint: ColorLike | None = (0, 0, 0, 110)
-    gradient_top: ColorLike | None = (44, 48, 60, 255)
-    gradient_bottom: ColorLike | None = (26, 28, 36, 255)
-    shadow_color: ColorLike | None = (0, 0, 0, 80)
-    shadow_offset: tuple[int, int] = (0, 2)
-    icon_gap: int = 8
+from .base import UIBase, UIOptions, generate_box_model
+from .theming import SKIN_STATE_KEYS as STATE_KEYS, Skin, UIStyle
+from .theming import StateKey, UIStyle
 
 
 class Button(UIBase):
+    """Styled interactive button.
+
+    Chrome (background/gradient/border/shadow/label color) comes from one
+    shared :class:`pygkit.ui.UIStyle`; per-state behavior lives in the
+    style's ``hover``/``pressed``/``disabled`` partials (gradient swaps
+    replace tint overlays; ``offset_y`` reproduces pack-art label motion).
+    ``selected`` is a separate application-controlled persistent state for
+    tabs, toggles, and menu items; clicks never change it automatically.
+    Foundation chrome painting lives in the shared engine — this widget
+    only adds state resolution, the label, and the optional icon.
+
+    Widget-extension data (not chrome): ``background_image`` (clipped art
+    beneath content), ``image`` (foreground icon left of the label),
+    ``images`` (per-state skin frames), and ``hit_masks``.
+    """
+
+    DEFAULT_STYLE: UIStyle = {
+        "fg": (255, 255, 255, 255),
+        "gradient": ((44, 48, 60, 255), (26, 28, 36, 255)),
+        "radius": 9,
+        "hover": {"gradient": ((56, 60, 74, 255), (31, 33, 42, 255))},
+        "pressed": {"gradient": ((30, 32, 42, 255), (17, 18, 23, 255))},
+        "disabled": {"gradient": ((24, 26, 34, 255), (15, 16, 21, 255))},
+    }
+
     def __init__(
         self,
         font: Font,
         text: str,
         *,
         image: Surface | None = None,
-        width: int = 0,
-        height: int = 0,
-        style: ButtonStyle | None = None,
+        background_image: Surface | None = None,
+        images: Skin | None = None,
+        hit_masks: "dict[str, Mask] | None" = None,
+        style: UIStyle | None = None,
+        icon_gap: int = 8,
         enabled: bool = True,
+        selected: bool = False,
         **overrides: Unpack[UIOptions],
     ) -> None:
         self.font = font
         self.text = text
         self.image = image
-        self.style = style or ButtonStyle()
+        self.images = images
+        self.hit_masks = hit_masks
+        self.icon_gap = max(0, icon_gap)
         self.enabled = enabled
+        if not isinstance(selected, bool):
+            raise TypeError(f"selected must be bool, got {type(selected).__name__}")
+        self._selected = selected
         self.on_press: Signal[Button] = Signal("button_press")
+
+        self._pad_x = overrides.get("padding_x", 0)
+        self._pad_y = overrides.get("padding_y", 0)
+        self._border_w = overrides.get("border_width", 0)
+        self._auto_w = overrides.get("width", 0) <= 0
+        self._auto_h = overrides.get("height", 0) <= 0
         tw, th = font.size(text) if text else (0, 0)
         if image is not None:
-            natural_w, natural_h = image.get_width(), image.get_height()
+            natural_w = image.get_width() + (self.icon_gap if text else 0) + tw
+            natural_h = max(image.get_height(), th)
         else:
             natural_w, natural_h = 16 + tw, th + 10
-        pad_x = overrides.get("padding_x", 0)
-        pad_y = overrides.get("padding_y", 0)
-        border = overrides.get("border_width", 0)
-        if width <= 0:
-            width = natural_w + 2 * (pad_x + border)
-        if height <= 0:
-            height = natural_h + 2 * (pad_y + border)
         options: UIOptions = {
+            "width": overrides.get("width", 0),
+            "height": overrides.get("height", 0),
             **{
-                "width": width,
-                "height": height,
-                "border_radius": 9,
-                "border_width": 0,
-                "background": (20, 22, 28, 255),
+                k: v for k, v in overrides.items() if k not in ("width", "height")
             },
-            **overrides,
         }
-        super().__init__(options)
+        if self._auto_w:
+            options["width"] = natural_w + 2 * (self._pad_x + self._border_w)
+        if self._auto_h:
+            options["height"] = natural_h + 2 * (self._pad_y + self._border_w)
+        self._options = dict(options)
+        super().__init__(options, style=style, background_image=background_image)
+
         self._armed = False
         self._hovered = False
-        self._label: Surface | None = None
-        self._tint: dict[str, Surface | None] = {"hover": None, "pressed": None, "disabled": None}
-        self._background: Surface | None = None
-        self._shadow: Surface | None = None
-        self._flat_background = "background" in overrides
+        self._labels: dict[StateKey, Surface] = {}
+        self._skin: dict[str, Surface] | None = None
         self._origin = (0, 0)
+        self._origin_valid = False
+
 
     def set_text(self, text: str) -> None:
+        """Set the label text and re-flow auto-sized axes.
+
+        Width/height recompute exactly as in ``__init__`` for axes that
+        were not explicitly sized; explicitly passed sizes are kept.
+        Cached surfaces and (via dirty checks) container positions follow
+        automatically.
+        """
         self.text = text
+        self.invalidate()
+        self._reflow()
+
+    def _reflow(self) -> None:
+        """Recompute natural size and rebuild the box model for auto axes."""
+        if not (self._auto_w or self._auto_h):
+            return
+        tw, th = self.font.size(self.text) if self.text else (0, 0)
+        if self.image is not None:
+            natural_w = self.image.get_width() + (self.icon_gap if self.text else 0) + tw
+            natural_h = max(self.image.get_height(), th)
+        else:
+            natural_w, natural_h = 16 + tw, th + 10
+        if self._auto_w:
+            self._options["width"] = natural_w + 2 * (self._pad_x + self._border_w)
+        if self._auto_h:
+            self._options["height"] = natural_h + 2 * (self._pad_y + self._border_w)
+        self.box_model = generate_box_model(self._options)
+        self.local_surface = Surface(
+            (self.box_model["full_width"], self.box_model["full_height"]), SRCALPHA
+        )
         self.invalidate()
 
     def set_enabled(self, enabled: bool) -> None:
         self.enabled = enabled
         self._armed = False
 
+    @property
+    def selected(self) -> bool:
+        """Whether this Button has application-controlled persistent selection."""
+        return self._selected
+
+    def set_selected(self, selected: bool) -> None:
+        """Select or deselect this Button without changing click behavior.
+
+        A selected Button remains selected after clicks. The owner is
+        responsible for implementing a toggle, tab group, or menu model and
+        calling this method when its application state changes.
+        """
+        if not isinstance(selected, bool):
+            raise TypeError(f"selected must be bool, got {type(selected).__name__}")
+        self._selected = selected
+
     def invalidate(self) -> None:
-        self._label = None
-        self._tint = {"hover": None, "pressed": None, "disabled": None}
-        self._background = None
-        self._shadow = None
+        self._labels.clear()
+        self._skin = None
+        super().invalidate()
 
-    @staticmethod
-    def _to_rgba(color: ColorLike) -> tuple[int, int, int, int]:
-        c = pygame.Color(color)
-        return (c.r, c.g, c.b, c.a)
 
-    @classmethod
-    def _build_gradient(
-        cls,
-        size: tuple[int, int],
-        top: ColorLike,
-        bottom: ColorLike,
-        radius: int,
-    ) -> Surface:
-        """Build a vertical gradient with rounded corners (cached, build-time only)."""
-        w, h = max(1, size[0]), max(1, size[1])
-        surf = Surface((w, h), SRCALPHA)
-        surf.fill((0, 0, 0, 0))
-        tr, tg, tb, ta = cls._to_rgba(top)
-        br, bg, bb, ba = cls._to_rgba(bottom)
-        radius = max(0, min(radius, w // 2, h // 2))
-        for y in range(h):
-            t = y / (h - 1) if h > 1 else 0.0
-            color = (
-                round(tr + (br - tr) * t),
-                round(tg + (bg - tg) * t),
-                round(tb + (bb - tb) * t),
-                round(ta + (ba - ta) * t),
-            )
-            if radius <= 0 or (y >= radius and y < h - radius):
-                pygame.draw.line(surf, color, (0, y), (w - 1, y))
-            else:
-                dy = radius - y - 1 if y < radius else y - (h - radius)
-                dx = int((radius * radius - dy * dy) ** 0.5)
-                x0 = radius - dx
-                x1 = w - radius + dx - 1
-                if x1 >= x0:
-                    pygame.draw.line(surf, color, (x0, y), (x1, y))
-        # Subtle top highlight for a raised look.
-        if w > 2 * radius + 2 and h > 3:
-            pygame.draw.line(surf, (255, 255, 255, 22), (radius, 1), (w - radius - 1, 1))
-        return surf
+    def _skin_state(self) -> StateKey:
+        """Current state-skin key from button state."""
+        return self._state_key(
+            enabled=self.enabled,
+            armed=self._armed,
+            hovered=self._hovered,
+            selected=self._selected,
+        )
 
-    @classmethod
-    def _build_shadow(
-        cls,
-        size: tuple[int, int],
-        radius: int,
-        color: ColorLike,
-    ) -> Surface:
-        """Build a filled rounded shadow sprite (cached, build-time only)."""
-        w, h = max(1, size[0]), max(1, size[1])
-        surf = Surface((w, h), SRCALPHA)
-        surf.fill((0, 0, 0, 0))
-        pygame.draw.rect(surf, color, (0, 0, w, h), border_radius=max(0, radius))
-        return surf
+    def _ensure_skin(self) -> None:
+        """Validate/complete the state skin once; whole-box art, no chrome."""
+        skin = self.images
+        if skin is None or self._skin is not None:
+            return
+        missing = [k for k in STATE_KEYS if skin.get(k) is None]
+        if missing:
+            raise ValueError(f"button skin misses states: {missing!r}")
+        frames: dict[StateKey, Surface] = {}
+        for k in STATE_KEYS:
+            try:
+                frames[k] = skin[k].convert_alpha()
+            except pygame.error:
+                frames[k] = skin[k].copy()
+        self._skin = frames
 
-    def _ensure(self) -> None:
-        if self._label is None and self.text:
-            self._label = self.font.render(self.text, True, self.style.text_color)
-        w = self.box_model["content_width"]
-        h = self.box_model["content_height"]
-        for key, color in (
-            ("hover", self.style.hover_tint),
-            ("pressed", self.style.pressed_tint),
-            ("disabled", self.style.disabled_tint),
-        ):
-            if self._tint[key] is None and color is not None:
-                surf = Surface((max(1, w), max(1, h)), SRCALPHA)
-                surf.fill(color)
-                self._tint[key] = surf
-        if self._background is None:
-            radius = max(0, self.border["radius"] - self.border["width"])
-            if (
-                not self._flat_background
-                and self.style.gradient_top is not None
-                and self.style.gradient_bottom is not None
-            ):
-                self._background = self._build_gradient(
-                    (w, h), self.style.gradient_top, self.style.gradient_bottom, radius
-                )
-            else:
-                self._background = None
-        if self._shadow is None and self.style.shadow_color is not None:
-            full = self.size
-            self._shadow = self._build_shadow(
-                full, max(0, self.border["radius"]), self.style.shadow_color
-            )
 
     def render(self, screen: Surface, pos_offset: tuple[int, int] = (0, 0)) -> None:
-        self.draw_base()
-        self._ensure()
         pos = (
             self.box_model["offset_x"] + pos_offset[0],
             self.box_model["offset_y"] + pos_offset[1],
         )
         self._origin = pos
-        if self._shadow is not None:
-            sx, sy = self.style.shadow_offset
-            screen.blit(self._shadow, (pos[0] + sx, pos[1] + sy))
+        self._origin_valid = True
+        self._ensure_skin()
+        state = self._skin_state()
+        resolved = self._resolved_style(state)
+
+        self.draw_shadow(screen, pos, state)
+
+        self.local_surface.fill((0, 0, 0, 0))
+        if self._skin is None:
+            self.draw_base(state)
+        else:
+            self.draw_background_image(state)
+        if self._skin is not None:
+            skin_state = state if state in STATE_KEYS else "normal"
+            self.local_surface.blit(self._skin[skin_state], (0, 0))
         base = (self.box_model["left"], self.box_model["top"])
-        _, h = self.size
-        if self._background is not None:
-            self.local_surface.blit(self._background, base)
         if self.image is not None:
             self.local_surface.blit(self.image, base)
-        x = base[0] + max(0, self.style.icon_gap)
-        if self.image is not None and self._label is not None:
-            x = base[0] + (self.size[0] - self._label.get_width()) // 2
-        if self._label is not None:
-            self.local_surface.blit(self._label, (x, base[1] + (h - self._label.get_height()) // 2))
-        if not self.enabled:
-            if self._tint["disabled"] is not None:
-                self.local_surface.blit(self._tint["disabled"], base)
-        elif self._armed:
-            if self._tint["pressed"] is not None:
-                self.local_surface.blit(self._tint["pressed"], base)
-        elif self._hovered:
-            if self._tint["hover"] is not None:
-                self.local_surface.blit(self._tint["hover"], base)
+        label = self._label_for(state)
+        if label is not None:
+            y_off = resolved.offset_y
+            if self.image is not None:
+                self.local_surface.blit(
+                    label,
+                    (
+                        base[0] + self.image.get_width() + self.icon_gap,
+                        base[1]
+                        + (self.box_model["content_height"] - label.get_height()) // 2
+                        + y_off,
+                    ),
+                )
+            else:
+                self.local_surface.blit(
+                    label,
+                    (
+                        max(0, (self.size[0] - label.get_width()) // 2),
+                        max(0, (self.size[1] - label.get_height()) // 2 + y_off),
+                    ),
+                )
         screen.blit(self.local_surface, pos)
 
+    def _label_for(self, state: StateKey) -> Surface | None:
+        if not self.text:
+            return None
+        label = self._labels.get(state)
+        if label is None:
+            fg = self._resolved_style(state).fg or (255, 255, 255, 255)
+            label = self.font.render(self.text, True, fg)
+            self._labels[state] = label
+        return label
+
+
+    def handle_event(self, event: pygame.event.Event) -> bool:
+        """Lightweight per-widget event handling: hover on MOUSEMOTION."""
+        if event.type == pygame.MOUSEMOTION:
+            self._hovered = self.contains(event.pos)
+            return self._hovered
+        return False
+
+    def clear_hover(self) -> None:
+        """Clear transient pointer-over paint when an ancestor occludes us."""
+        self._hovered = False
+
     def contains(self, pos: tuple[int, int]) -> bool:
+        if not self._origin_valid:
+            return False
+        masks = self.hit_masks
+        if masks is not None and self._origin_valid:
+            state = self._skin_state()
+            mask = masks.get(state)
+            if mask is None:
+                mask = masks.get("normal")
+            if mask is not None:
+                lx = pos[0] - self._origin[0]
+                ly = pos[1] - self._origin[1]
+                mw, mh = mask.get_size()
+                if 0 <= lx < mw and 0 <= ly < mh:
+                    return bool(mask.get_at((lx, ly)))
+                return False
         w, h = self.size
         return pygame.Rect(self._origin[0], self._origin[1], w, h).collidepoint(pos)
 

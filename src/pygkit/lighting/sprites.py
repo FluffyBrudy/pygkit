@@ -20,7 +20,7 @@ import pygame
 from pygame import Surface
 
 _cache: dict[tuple[Any, ...], Surface] = {}
-_CACHE_MAX = 128  # bound memory when callers vary parameters (e.g. radii)
+_CACHE_MAX = 128
 
 
 def _store(key: tuple[Any, ...], surf: Surface) -> Surface:
@@ -144,15 +144,12 @@ def dynamic_glow_sprite(
         ux, uy = 1.0, 0.0
 
     if s <= 1e-4:
-        # no wind: fall back to the plain isotropic glow. Note this
-        # returns the shared glow_sprite cache entry - copy it before
-        # mutating (set_alpha, fill, ...), just like glow_sprite.
         return glow_sprite(radius, color, "exp", exponent)
 
-    a_axis = 1.0 + (stretch - 1.0) * s  # elongate along the wind
-    b_axis = 1.0 / a_axis  # keep area roughly constant
-    shift = core_shift * radius * s  # hot core displaced against the wind
-    wob = 0.08 * radius * s  # subtle seeded waviness
+    a_axis = 1.0 + (stretch - 1.0) * s
+    b_axis = 1.0 / a_axis
+    shift = core_shift * radius * s
+    wob = 0.08 * radius * s
     phase = seed * 0.61803398875
     r2 = radius * radius
 

@@ -23,20 +23,20 @@ clock = pygame.time.Clock()
 running = True
 
 
-hp_bar = ProgressBarUI(width=300, height=20, fill_color=(220, 60, 60), background=(60, 20, 20))
-mana_bar = ProgressBarUI(width=300, height=14, fill_color=(60, 120, 220), background=(15, 30, 60))
+hp_bar = ProgressBarUI(width=300, height=20, style={"fg": (220, 60, 60), "bg": (60, 20, 20)})
+mana_bar = ProgressBarUI(width=300, height=14, style={"fg": (60, 120, 220), "bg": (15, 30, 60)})
 hp_bar.set_progress(0.75)
 mana_bar.set_progress(0.45)
 
 
 dash_timer = Timer(3.0, start_finished=True)
-dash_cd = CooldownOverlay(dash_timer, 48, border_color=(100, 200, 255), border_width=2, border_radius=4)
+dash_cd = CooldownOverlay(dash_timer, 48, style={"border": (100, 200, 255), "radius": 4}, border_width=2)
 
 shield_timer = Timer(5.0, start_finished=True)
-shield_cd = CooldownOverlay(shield_timer, 48, border_color=(255, 220, 60), border_width=2, border_radius=4)
+shield_cd = CooldownOverlay(shield_timer, 48, style={"border": (255, 220, 60), "radius": 4}, border_width=2)
 
 ult_timer = Timer(8.0, start_finished=True)
-ult_cd = CooldownOverlay(ult_timer, 48, border_color=(255, 80, 120), border_width=2, border_radius=4)
+ult_cd = CooldownOverlay(ult_timer, 48, style={"border": (255, 80, 120), "radius": 4}, border_width=2)
 
 
 skills = HBox(gap=12)

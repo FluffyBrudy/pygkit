@@ -5,6 +5,7 @@ Tests the purely logical aspects: state management, typewriter effect,
 text processing, and event handling without relying on visual rendering.
 """
 
+import pygame
 import pytest
 
 from pygkit.ui.dialog import (
@@ -315,6 +316,22 @@ class TestDialogBox:
         dialog.skip_to_end()
 
         assert dialog.current_text == unicode_text
+
+
+def test_dialog_draws_shared_style_shadow():
+    dialog = DialogBox(
+        DialogConfig(width=40, height=20),
+        style={
+            "gradient": None,
+            "bg": (0, 0, 0, 0),
+            "border": (0, 0, 0, 0),
+            "shadow": (3, 2, (255, 0, 0, 255)),
+        },
+    )
+    screen = pygame.Surface((80, 60), pygame.SRCALPHA)
+    dialog.render(screen, (10, 10))
+    # The dialog itself ends at x=49; the offset shadow extends beyond it.
+    assert screen.get_at((51, 20))[:3] == (255, 0, 0)
 
 
 class TestTypewriterSpeed:
