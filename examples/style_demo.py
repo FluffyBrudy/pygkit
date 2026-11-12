@@ -37,7 +37,7 @@ DARK_TEAL: UIStyle = {
     "radius": 12,
     "shadow": (0, 3, (0, 0, 0, 64)),
     "hover": {"gradient": ("#45435c", "#262432")},
-    "pressed": {"bg": "#171923", "offset_y": 2},
+    "pressed": {"gradient": None, "bg": "#171923", "offset_y": 2},
     "disabled": {"gradient": None, "bg": (30, 30, 36, 255)},
 }
 
@@ -57,7 +57,9 @@ def main() -> None:
 
     start = Button(font, "Start", style=DARK_TEAL, padding_x=20, padding_y=0)
     resume = Button(font, "Resume", style=DARK_TEAL, padding_x=16, padding_y=2)
-    # Style reuse: one change, every widget that shares the data updates.
+    # Construction-time reuse: each widget copies the shared data into
+    # its own style cache; later edits to DARK_TEAL don't propagate
+    # (call set_style() per widget for live updates).
     shared = dict(DARK_TEAL)
     levels = Button(font, "Levels", style=shared, padding_x=16, padding_y=2)
     bar = ProgressBarUI(width=280, height=22, style={"fg": (120, 220, 255)})
@@ -92,6 +94,9 @@ def main() -> None:
                 on = bar.get_progress() < 0.1
                 bar.set_progress(0.72 if on else 0.0)
                 bar2.set_progress(0.45 if on else 0.0)
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_r:
+                bar.set_progress(0.0)
+                bar2.set_progress(0.0)
             elif event.type in (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP) and event.button == 1:
                 hud.handle_event(event)
             elif event.type == pygame.MOUSEMOTION:
